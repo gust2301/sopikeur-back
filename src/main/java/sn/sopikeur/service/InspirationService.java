@@ -4,14 +4,20 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sn.sopikeur.common.error.NotFoundException;
+import sn.sopikeur.common.pagination.PageResponse;
 import sn.sopikeur.common.utils.StringUtils;
 import sn.sopikeur.dto.request.admin.InspirationRequest;
 import sn.sopikeur.dto.response.publicapi.InspirationResponse;
 import sn.sopikeur.dto.response.publicapi.ProductSummaryResponse;
 import sn.sopikeur.entity.catalog.Product;
+import sn.sopikeur.entity.catalog.ProductType;
 import sn.sopikeur.entity.inspirations.Inspiration;
 import sn.sopikeur.mapper.InspirationMapper;
 import sn.sopikeur.repo.InspirationRepository;
@@ -27,13 +33,41 @@ public class InspirationService {
     private final InspirationMapper inspirationMapper;
 
     @Transactional(readOnly = true)
-    public List<InspirationResponse> list(String tag) {
-        List<Inspiration> inspirations = tag == null
-            ? inspirationRepository.findAll()
-            : inspirationRepository.findByTagsContainingIgnoreCase(tag);
-        return inspirations.stream()
+    public List<InspirationResponse> list(String tag, ProductType type) {
+        Page<Inspiration> inspirations = listInternal(tag, type, Pageable.unpaged());
+        return inspirations.getContent().stream()
             .map(this::toResponse)
             .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<InspirationResponse> listPaged(String tag, ProductType type, int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 50);
+        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by("createdAt").descending());
+        Page<Inspiration> inspirations = listInternal(tag, type, pageable);
+        return PageResponse.<InspirationResponse>builder()
+            .items(inspirations.getContent().stream().map(this::toResponse).collect(Collectors.toList()))
+            .total(inspirations.getTotalElements())
+            .build();
+    }
+
+    private Page<Inspiration> listInternal(String tag, ProductType type, Pageable pageable) {
+        if (tag == null && type == null) {
+            return inspirationRepository.findAll(pageable);
+        }
+        if (tag != null && type == null) {
+            return inspirationRepository.findByTagsContainingIgnoreCase(tag, pageable);
+        }
+        if (tag == null) {
+            return inspirationRepository.findDistinctByProducts_Type(type, pageable);
+        }
+        return inspirationRepository.findDistinctByTagsContainingIgnoreCaseAndProducts_Type(tag, type, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public List<InspirationResponse> list(String tag) {
+        return list(tag, null);
     }
 
     @Transactional(readOnly = true)

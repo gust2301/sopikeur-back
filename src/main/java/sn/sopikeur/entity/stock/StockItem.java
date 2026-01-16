@@ -37,4 +37,7 @@ public class StockItem extends Auditable {
 
     @Column(name = "reserved", nullable = false)
     private int reserved;
+
+    @Column(name = "preorder_allowed", nullable = false)
+    private boolean preorderAllowed;
 }

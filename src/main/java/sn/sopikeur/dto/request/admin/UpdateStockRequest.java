@@ -10,4 +10,6 @@ public class UpdateStockRequest {
 
     @Min(value = 0, message = "La quantité réservée doit être positive")
     private Integer reserved;
+
+    private Boolean preorderAllowed;
 }

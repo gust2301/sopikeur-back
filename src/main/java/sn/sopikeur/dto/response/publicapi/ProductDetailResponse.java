@@ -23,6 +23,8 @@ public class ProductDetailResponse {
     private ProductStatus status;
     private ProductType type;
     private boolean featured;
+    private String mainImage;
+    private List<String> galleryImages;
     private List<MediaAssetResponse> images;
     private StockStatus stockStatus;
 }

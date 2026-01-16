@@ -14,7 +14,7 @@ import sn.sopikeur.entity.catalog.ProductType;
 import sn.sopikeur.service.ProductService;
 
 @RestController
-@RequestMapping(ApiConstants.PUBLIC_API_BASE + "/products")
+@RequestMapping(ApiConstants.V1 + "/products")
 @RequiredArgsConstructor
 public class ProductPublicController {
 

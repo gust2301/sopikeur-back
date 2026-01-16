@@ -34,31 +34,38 @@ public class LeadService {
     private final ContactMessageRepository contactMessageRepository;
     private final PreorderRequestRepository preorderRequestRepository;
     private final LeadMapper leadMapper;
+    private final LeadRateLimiter leadRateLimiter;
+    private final NotificationService notificationService;
 
     @Transactional
-    public void createQuote(QuoteRequestCreate request) {
+    public void createQuote(QuoteRequestCreate request, String clientKey) {
+        assertLeadAllowed(request.getWebsite(), clientKey, "quote");
         QuoteRequest quote = new QuoteRequest();
         quote.setFullName(request.getFullName());
         quote.setEmail(request.getEmail());
         quote.setPhone(request.getPhone());
         quote.setMessage(request.getMessage());
         quote.setStatus(QuoteStatus.NEW);
-        quoteRequestRepository.save(quote);
+        QuoteRequest saved = quoteRequestRepository.save(quote);
+        notificationService.notifyQuoteCreated(saved);
     }
 
     @Transactional
-    public void createContact(ContactMessageCreate request) {
+    public void createContact(ContactMessageCreate request, String clientKey) {
+        assertLeadAllowed(request.getWebsite(), clientKey, "contact");
         ContactMessage contact = new ContactMessage();
         contact.setFullName(request.getFullName());
         contact.setEmail(request.getEmail());
         contact.setPhone(request.getPhone());
         contact.setMessage(request.getMessage());
         contact.setStatus(ContactStatus.NEW);
-        contactMessageRepository.save(contact);
+        ContactMessage saved = contactMessageRepository.save(contact);
+        notificationService.notifyContactCreated(saved);
     }
 
     @Transactional
-    public void createPreorder(PreorderRequestCreate request) {
+    public void createPreorder(PreorderRequestCreate request, String clientKey) {
+        assertLeadAllowed(request.getWebsite(), clientKey, "preorder");
         PreorderRequest preorder = new PreorderRequest();
         preorder.setFullName(request.getFullName());
         preorder.setEmail(request.getEmail());
@@ -67,7 +74,8 @@ public class LeadService {
         preorder.setQuantity(request.getQuantity());
         preorder.setMessage(request.getMessage());
         preorder.setStatus(PreorderStatus.NEW);
-        preorderRequestRepository.save(preorder);
+        PreorderRequest saved = preorderRequestRepository.save(preorder);
+        notificationService.notifyPreorderCreated(saved);
     }
 
     @Transactional(readOnly = true)
@@ -113,5 +121,13 @@ public class LeadService {
             .orElseThrow(() -> new NotFoundException("Précommande introuvable"));
         preorder.setStatus(request.getStatus());
         return leadMapper.toResponse(preorderRequestRepository.save(preorder));
+    }
+
+    private void assertLeadAllowed(String honeypot, String clientKey, String category) {
+        if (honeypot != null && !honeypot.isBlank()) {
+            throw new IllegalArgumentException("Requête rejetée.");
+        }
+        String key = category + ":" + (clientKey == null ? "unknown" : clientKey);
+        leadRateLimiter.assertAllowed(key);
     }
 }

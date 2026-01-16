@@ -64,7 +64,7 @@ public class ProductService {
         if (available > 0) {
             return StockStatus.IN_STOCK;
         }
-        if (stockItem.get().getQuantity() > 0) {
+        if (stockItem.get().getQuantity() == 0 && stockItem.get().isPreorderAllowed()) {
             return StockStatus.PREORDER;
         }
         return StockStatus.OUT_OF_STOCK;

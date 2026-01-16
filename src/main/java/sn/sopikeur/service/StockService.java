@@ -34,6 +34,9 @@ public class StockService {
         if (request.getReserved() != null) {
             stockItem.setReserved(request.getReserved());
         }
+        if (request.getPreorderAllowed() != null) {
+            stockItem.setPreorderAllowed(request.getPreorderAllowed());
+        }
         return stockItemRepository.save(stockItem);
     }
 
@@ -66,6 +69,7 @@ public class StockService {
         item.setProduct(product);
         item.setQuantity(0);
         item.setReserved(0);
+        item.setPreorderAllowed(false);
         return item;
     }
 }

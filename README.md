@@ -38,30 +38,33 @@ Seed admin Flyway :
 
 Récupérer un token :
 ```bash
-curl -X POST http://localhost:8080/api/auth/login \
+curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"password"}'
 ```
 
+### Base URL (prod)
+- `https://api.sopikeur.sn/api/v1`
+
 ## Endpoints principaux
 ### Public
-- `GET /api/products?type=SPC|PANEL&featured=true`
-- `GET /api/products/{slug}`
-- `GET /api/inspirations?tag=SPC|PANEL|BOTH`
-- `GET /api/inspirations/{slug}`
-- `POST /api/quotes`
-- `POST /api/contact`
-- `POST /api/preorders`
+- `GET /api/v1/products?type=SPC|PANEL&featured=true`
+- `GET /api/v1/products/{slug}`
+- `GET /api/v1/inspirations?tag=SPC|PANEL|BOTH`
+- `GET /api/v1/inspirations/{slug}`
+- `POST /api/v1/quotes`
+- `POST /api/v1/contact`
+- `POST /api/v1/preorders`
 
 ### Admin (JWT)
-- `PATCH /api/admin/products/{id}/stock`
-- `POST /api/admin/stock/movements`
-- `GET /api/admin/quotes`
-- `PATCH /api/admin/quotes/{id}`
-- `GET /api/admin/contact`
-- `PATCH /api/admin/contact/{id}`
-- `GET /api/admin/preorders`
-- `PATCH /api/admin/preorders/{id}`
-- `GET/POST/PUT/DELETE /api/admin/inspirations`
-- `POST /api/admin/inspirations/{id}/products/{productId}`
-- `DELETE /api/admin/inspirations/{id}/products/{productId}`
+- `PATCH /api/v1/admin/products/{id}/stock`
+- `POST /api/v1/admin/stock/movements`
+- `GET /api/v1/admin/quotes`
+- `PATCH /api/v1/admin/quotes/{id}`
+- `GET /api/v1/admin/contact`
+- `PATCH /api/v1/admin/contact/{id}`
+- `GET /api/v1/admin/preorders`
+- `PATCH /api/v1/admin/preorders/{id}`
+- `GET/POST/PUT/DELETE /api/v1/admin/inspirations`
+- `POST /api/v1/admin/inspirations/{id}/products/{productId}`
+- `DELETE /api/v1/admin/inspirations/{id}/products/{productId}`

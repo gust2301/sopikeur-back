@@ -1,0 +1,2 @@
+ALTER TABLE stock_items
+    ADD COLUMN preorder_allowed BOOLEAN NOT NULL DEFAULT FALSE;

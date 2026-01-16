@@ -17,7 +17,7 @@ import sn.sopikeur.entity.stock.StockMovement;
 import sn.sopikeur.service.StockService;
 
 @RestController
-@RequestMapping(ApiConstants.ADMIN_API_BASE)
+@RequestMapping(ApiConstants.V1_ADMIN)
 @RequiredArgsConstructor
 public class StockAdminController {
 

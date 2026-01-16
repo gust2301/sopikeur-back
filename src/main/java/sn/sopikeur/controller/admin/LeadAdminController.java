@@ -20,7 +20,7 @@ import sn.sopikeur.dto.response.admin.QuoteRequestResponse;
 import sn.sopikeur.service.LeadService;
 
 @RestController
-@RequestMapping(ApiConstants.ADMIN_API_BASE)
+@RequestMapping(ApiConstants.V1_ADMIN)
 @RequiredArgsConstructor
 public class LeadAdminController {
 

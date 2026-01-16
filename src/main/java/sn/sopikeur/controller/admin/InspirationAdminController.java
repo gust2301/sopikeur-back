@@ -18,7 +18,7 @@ import sn.sopikeur.dto.response.publicapi.InspirationResponse;
 import sn.sopikeur.service.InspirationService;
 
 @RestController
-@RequestMapping(ApiConstants.ADMIN_API_BASE + "/inspirations")
+@RequestMapping(ApiConstants.V1_ADMIN + "/inspirations")
 @RequiredArgsConstructor
 public class InspirationAdminController {
 
@@ -26,7 +26,7 @@ public class InspirationAdminController {
 
     @GetMapping
     public List<InspirationResponse> list() {
-        return inspirationService.list(null);
+        return inspirationService.list(null, null);
     }
 
     @PostMapping

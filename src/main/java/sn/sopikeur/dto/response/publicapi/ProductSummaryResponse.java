@@ -22,5 +22,6 @@ public class ProductSummaryResponse {
     private ProductType type;
     private boolean featured;
     private String coverUrl;
+    private String mainImage;
     private StockStatus stockStatus;
 }
