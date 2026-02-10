@@ -1,6 +1,5 @@
 package sn.sopikeur.dto.request.publicapi;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -8,17 +7,19 @@ import lombok.Data;
 
 @Data
 public class ContactMessageCreate {
-    @NotBlank(message = "Le nom est obligatoire")
-    private String fullName;
+    private String customerType;
 
-    @Email(message = "Email invalide")
-    @NotBlank(message = "Email obligatoire")
-    private String email;
+    @NotBlank(message = "Name is required")
+    @Size(min = 2, message = "Name must contain at least 2 characters")
+    private String name;
 
-    @Pattern(regexp = "^$|^[0-9+().\\s-]{6,20}$", message = "Téléphone invalide")
+    @NotBlank(message = "Phone is required")
+    @Pattern(regexp = "^[0-9+().\\s-]{8,20}$", message = "Phone is invalid")
     private String phone;
 
-    @Size(min = 10, message = "Le message doit contenir au moins 10 caractères")
+    @Pattern(regexp = "^$|^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$", message = "Email is invalid")
+    private String email;
+
     private String message;
 
     private String website;

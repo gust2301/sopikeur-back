@@ -112,6 +112,20 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!--Inugami framework-->
+        <dependency>
+            <groupId>io.inugami</groupId>
+            <artifactId>inugami_commons_test</artifactId>
+            <version>3.3.5</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.inugami.monitoring</groupId>
+            <artifactId>inugami_logs_obfuscator</artifactId>
+            <version>4.2.4</version>
+        </dependency>
     </dependencies>
 
 

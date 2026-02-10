@@ -51,16 +51,18 @@ public class LeadService {
     }
 
     @Transactional
-    public void createContact(ContactMessageCreate request, String clientKey) {
+    public ContactMessage createContact(ContactMessageCreate request, String clientKey) {
         assertLeadAllowed(request.getWebsite(), clientKey, "contact");
         ContactMessage contact = new ContactMessage();
-        contact.setFullName(request.getFullName());
+        contact.setFullName(request.getName());
+        contact.setCustomerType(request.getCustomerType());
         contact.setEmail(request.getEmail());
         contact.setPhone(request.getPhone());
         contact.setMessage(request.getMessage());
         contact.setStatus(ContactStatus.NEW);
         ContactMessage saved = contactMessageRepository.save(contact);
         notificationService.notifyContactCreated(saved);
+        return saved;
     }
 
     @Transactional

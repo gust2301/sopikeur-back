@@ -27,7 +27,10 @@ public class ContactMessage extends Auditable {
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
-    @Column(name = "email", nullable = false)
+    @Column(name = "customer_type")
+    private String customerType;
+
+    @Column(name = "email")
     private String email;
 
     @Column(name = "phone")

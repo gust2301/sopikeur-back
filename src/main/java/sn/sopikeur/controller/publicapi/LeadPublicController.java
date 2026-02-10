@@ -3,6 +3,7 @@ package sn.sopikeur.controller.publicapi;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -12,6 +13,8 @@ import sn.sopikeur.common.constants.ApiConstants;
 import sn.sopikeur.dto.request.publicapi.ContactMessageCreate;
 import sn.sopikeur.dto.request.publicapi.PreorderRequestCreate;
 import sn.sopikeur.dto.request.publicapi.QuoteRequestCreate;
+import sn.sopikeur.dto.response.publicapi.ContactApiResponse;
+import sn.sopikeur.entity.leads.ContactMessage;
 import sn.sopikeur.service.LeadService;
 
 @RestController
@@ -31,12 +34,16 @@ public class LeadPublicController {
     }
 
     @PostMapping("/contact")
-    public ResponseEntity<Void> createContact(
+    public ResponseEntity<ContactApiResponse> createContact(
         HttpServletRequest httpRequest,
         @Valid @RequestBody ContactMessageCreate request
     ) {
-        leadService.createContact(request, resolveClientKey(httpRequest));
-        return ResponseEntity.ok().build();
+        ContactMessage saved = leadService.createContact(request, resolveClientKey(httpRequest));
+        ContactApiResponse response = new ContactApiResponse(
+            "Contact request received",
+            "cnt_" + saved.getId()
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/preorders")

@@ -2,6 +2,7 @@ package sn.sopikeur.common.error;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import lombok.Builder;
 import lombok.Data;
 
@@ -14,4 +15,5 @@ public class ApiError {
     private String message;
     private String path;
     private List<String> details;
+    private Map<String, String> errors;
 }
