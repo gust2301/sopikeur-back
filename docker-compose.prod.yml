@@ -71,10 +71,10 @@ services:
       # Options JVM (optionnel, pour tuning mémoire)
       JAVA_OPTS: ${JAVA_OPTS:--Xmx512m -Xms256m}
 
-    ports:
-      # Expose le backend sur le port 8080
-      # En production, un reverse proxy (Nginx/Caddy) devant
-      - "${BACKEND_PORT:-8080}:8080"
+    # Pas d'exposition publique: accès uniquement via le réseau Docker interne
+    # Pour debug local VPS uniquement, vous pouvez temporairement utiliser:
+    # ports:
+    #   - "127.0.0.1:8080:8080"
 
     # Attend que MySQL soit healthy avant de démarrer
     depends_on:
@@ -92,6 +92,25 @@ services:
       retries: 3
       start_period: 60s
 
+  # ----------------------------------------------------------------------------
+  # Caddy Reverse Proxy (HTTPS)
+  # ----------------------------------------------------------------------------
+  caddy:
+    image: caddy:2
+    container_name: sopikeur-caddy
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - sopikeur-internal
+
 # ==============================================================================
 # Volumes persistants
 # ==============================================================================
@@ -99,6 +118,12 @@ volumes:
   mysql_data:
     driver: local
     name: sopikeur_mysql_data
+  caddy_data:
+    driver: local
+    name: sopikeur_caddy_data
+  caddy_config:
+    driver: local
+    name: sopikeur_caddy_config
 
 # ==============================================================================
 # Réseaux

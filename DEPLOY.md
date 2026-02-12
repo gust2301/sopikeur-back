@@ -432,3 +432,28 @@ En cas de problème:
 ---
 
 **🎉 Bon déploiement !**
+
+---
+
+## 🌐 Runbook Caddy (HTTPS) pour `api.sopikeur.sn`
+
+```bash
+# 1) Vérifier le DNS (A record vers IP du VPS)
+dig +short api.sopikeur.sn
+
+# 2) Déployer / mettre à jour la stack (backend + mysql + caddy)
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+
+# 3) Vérifier les logs Caddy (émission certificat Let's Encrypt + proxy)
+docker logs -f sopikeur-caddy
+
+# 4) Tester la racine de l'API
+curl -I https://api.sopikeur.sn
+
+# 5) Tester le health endpoint Spring Boot
+curl -I https://api.sopikeur.sn/actuator/health
+
+# 6) Firewall VPS: ouvrir uniquement 22, 80, 443 (pas 8080)
+```
+
+Rappel: si le reverse proxy est correctement en place, **ne pas ouvrir 8080 publiquement**.
