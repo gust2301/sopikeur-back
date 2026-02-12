@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/sopikeur?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${SPRING_DATASOURCE_USERNAME:sopikeur}
+    password: ${SPRING_DATASOURCE_PASSWORD:sopikeur}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+app:
+  cors:
+    allowed-origins:
+      - "http://localhost:4200"
+      - "http://127.0.0.1:4200"
+
+logging:
+  level:
+    root: INFO
+    sn.sopikeur: DEBUG
