@@ -22,3 +22,13 @@ app:
     expiration-minutes: ${APP_JWT_EXPIRATION_MINUTES:1440}
   cors:
     allowed-origins: []
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
