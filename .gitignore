@@ -31,3 +31,14 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Environment & Secrets ###
+.env.prod
+.env.local
+*.pem
+*.key
+*.crt
+deploy-history.txt
+
+### Docker ###
+.docker/

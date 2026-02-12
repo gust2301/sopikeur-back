@@ -1,0 +1,109 @@
+# ==============================================================================
+# Docker Compose - Configuration PRODUCTION
+# ==============================================================================
+# Services: MySQL 8.4 + Backend Spring Boot
+# Le backend utilise une image pré-buildée depuis GHCR (GitHub Container Registry)
+# ==============================================================================
+
+version: '3.8'
+
+services:
+  # ----------------------------------------------------------------------------
+  # MySQL Database
+  # ----------------------------------------------------------------------------
+  mysql:
+    image: mysql:8.4
+    container_name: sopikeur-mysql
+    restart: unless-stopped
+
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # Optimisations MySQL pour production
+      MYSQL_INITDB_SKIP_TZINFO: 1
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    # Healthcheck pour s'assurer que MySQL est prêt avant de démarrer le backend
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    networks:
+      - sopikeur-internal
+
+    # MySQL n'est PAS exposé à l'extérieur (pas de ports: mapping)
+    # Uniquement accessible depuis le réseau interne Docker
+
+  # ----------------------------------------------------------------------------
+  # Backend Spring Boot
+  # ----------------------------------------------------------------------------
+  backend:
+    # Image pré-buildée depuis GHCR
+    # Le tag est paramétré via APP_IMAGE_TAG dans .env.prod (ex: latest ou SHA court)
+    image: ghcr.io/gust2301/sopikeur-back:${APP_IMAGE_TAG:-latest}
+    container_name: sopikeur-backend
+    restart: unless-stopped
+
+    # Charge toutes les variables depuis .env.prod
+    env_file:
+      - .env.prod
+
+    environment:
+      # Force le profil Spring à 'prod'
+      SPRING_PROFILES_ACTIVE: prod
+
+      # Connexion MySQL (via hostname du service Docker)
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+
+      # JWT Configuration
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
+      APP_JWT_EXPIRATION_MINUTES: ${APP_JWT_EXPIRATION_MINUTES:-1440}
+
+      # Options JVM (optionnel, pour tuning mémoire)
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx512m -Xms256m}
+
+    ports:
+      # Expose le backend sur le port 8080
+      # En production, un reverse proxy (Nginx/Caddy) devant
+      - "${BACKEND_PORT:-8080}:8080"
+
+    # Attend que MySQL soit healthy avant de démarrer
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+    networks:
+      - sopikeur-internal
+
+    # Healthcheck basé sur Spring Boot Actuator
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+# ==============================================================================
+# Volumes persistants
+# ==============================================================================
+volumes:
+  mysql_data:
+    driver: local
+    name: sopikeur_mysql_data
+
+# ==============================================================================
+# Réseaux
+# ==============================================================================
+networks:
+  sopikeur-internal:
+    driver: bridge
+    name: sopikeur_network

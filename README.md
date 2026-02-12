@@ -46,6 +46,50 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 ### Base URL (prod)
 - `https://api.sopikeur.sn/api/v1`
 
+---
+
+## 🐳 Déploiement Production (Docker + CI/CD)
+
+### 📚 Documentation Complète
+
+- **[DEPLOY.md](DEPLOY.md)** - Guide complet de déploiement sur VPS
+- **[DOCKER_CHOICES.md](DOCKER_CHOICES.md)** - Explications des choix techniques
+- **[INFRASTRUCTURE_SUMMARY.md](INFRASTRUCTURE_SUMMARY.md)** - Vue d'ensemble de l'infrastructure
+
+### 🚀 Quick Start (Production)
+
+```bash
+nano .env.prod  # Changer TOUS les secrets
+
+# 2. Login GHCR
+echo "GITHUB_TOKEN" | docker login ghcr.io -u USERNAME --password-stdin
+
+# 3. Déployer
+./deploy.sh abc1234  # Remplacer par le SHA voulu
+```
+
+### 🔄 Workflow CI/CD
+
+```
+Git Push → GitHub Actions → GHCR → VPS Deploy
+```
+
+- **Image**: `ghcr.io/gust2301/sopikeur-back`
+- **Tags**: `latest` + SHA court (ex: `abc1234`)
+- **Build**: Multi-stage (Maven + JRE Alpine)
+- **Healthcheck**: `/actuator/health`
+
+### 📦 Fichiers Infrastructure
+
+```
+├── Dockerfile                    # Multi-stage optimisé
+├── docker-compose.prod.yml       # MySQL + Backend
+├── .github/workflows/            # CI/CD GitHub Actions
+└── deploy.sh                     # Script helper déploiement
+```
+
+---
+
 ## Endpoints principaux
 ### Public
 - `GET /api/v1/products?type=SPC|PANEL&featured=true`
