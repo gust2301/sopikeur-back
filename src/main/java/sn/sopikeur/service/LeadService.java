@@ -34,12 +34,11 @@ public class LeadService {
     private final ContactMessageRepository contactMessageRepository;
     private final PreorderRequestRepository preorderRequestRepository;
     private final LeadMapper leadMapper;
-    private final LeadRateLimiter leadRateLimiter;
     private final NotificationService notificationService;
 
     @Transactional
     public void createQuote(QuoteRequestCreate request, String clientKey) {
-        assertLeadAllowed(request.getWebsite(), clientKey, "quote");
+        assertLeadAllowed(request.getWebsite());
         QuoteRequest quote = new QuoteRequest();
         quote.setFullName(request.getFullName());
         quote.setEmail(request.getEmail());
@@ -52,7 +51,6 @@ public class LeadService {
 
     @Transactional
     public ContactMessage createContact(ContactMessageCreate request, String clientKey) {
-        assertLeadAllowed(request.getWebsite(), clientKey, "contact");
         ContactMessage contact = new ContactMessage();
         contact.setFullName(request.getName());
         contact.setCustomerType(request.getCustomerType());
@@ -67,7 +65,7 @@ public class LeadService {
 
     @Transactional
     public void createPreorder(PreorderRequestCreate request, String clientKey) {
-        assertLeadAllowed(request.getWebsite(), clientKey, "preorder");
+        assertLeadAllowed(request.getWebsite());
         PreorderRequest preorder = new PreorderRequest();
         preorder.setFullName(request.getFullName());
         preorder.setEmail(request.getEmail());
@@ -125,11 +123,9 @@ public class LeadService {
         return leadMapper.toResponse(preorderRequestRepository.save(preorder));
     }
 
-    private void assertLeadAllowed(String honeypot, String clientKey, String category) {
+    private void assertLeadAllowed(String honeypot) {
         if (honeypot != null && !honeypot.isBlank()) {
             throw new IllegalArgumentException("Requête rejetée.");
         }
-        String key = category + ":" + (clientKey == null ? "unknown" : clientKey);
-        leadRateLimiter.assertAllowed(key);
     }
 }

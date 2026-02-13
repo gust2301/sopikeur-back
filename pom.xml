@@ -14,7 +14,7 @@
 
     <groupId>sn.sopikeur</groupId>
     <artifactId>sopikeur-back</artifactId>
-    <version>0.0.4-SNAPSHOT</version>
+    <version>0.0.4</version>
     <name>sopikeur-back</name>
     <description>Sopi Keur backend</description>
 
