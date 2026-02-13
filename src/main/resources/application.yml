@@ -22,6 +22,17 @@ app:
     expiration-minutes: ${APP_JWT_EXPIRATION_MINUTES:1440}
   cors:
     allowed-origins: []
+  openapi:
+    local-server-url: ${APP_OPENAPI_LOCAL_SERVER_URL:http://localhost:8080}
+    server-url: ${APP_OPENAPI_SERVER_URL:https://api.sopikeur.sn}
+
+  antispam:
+    contact:
+      rate-limit:
+        requests: ${APP_ANTISPAM_CONTACT_REQUESTS:5}
+        window-seconds: ${APP_ANTISPAM_CONTACT_WINDOW_SECONDS:60}
+  turnstile:
+    secret: ${APP_TURNSTILE_SECRET:}
 
 management:
   endpoints:

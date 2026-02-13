@@ -17,6 +17,8 @@ app:
       - "https://sopikeur.sn"
       - "https://www.sopikeur.sn"
       - "https://develop.sopikeur-front.pages.dev"
+  turnstile:
+    secret: ${APP_TURNSTILE_SECRET:}
 
 logging:
   level:
