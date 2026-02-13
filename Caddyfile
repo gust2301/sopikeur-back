@@ -1,36 +1,33 @@
 {
-# Email pour Let's Encrypt
     email contact@sopikeur.sn
 
-# Logs globaux (optionnel)
-# debug
+# Optionnel: logs globaux
+# log {
+#   output stdout
+#   format console
+# }
 }
 
 api.sopikeur.sn {
 
-# Compression
     encode gzip
 
-# Logs pour ce site
     log {
             output stdout
             format console
         }
 
-# Sécurité HTTP (headers standards)
+# Headers sécurité (évite les doublons avec Spring)
     header {
-               X-Content-Type-Options "nosniff"
-               X-Frame-Options "DENY"
                Referrer-Policy "strict-origin-when-cross-origin"
                Permissions-Policy "geolocation=(), microphone=(), camera=()"
-           # HSTS (active seulement si tu es sûr d'être en HTTPS en prod)
-               Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+           # HSTS: safe (sans preload tant que tout n'est pas figé)
+               Strict-Transport-Security "max-age=31536000; includeSubDomains"
            }
 
-# --- (Optionnel) Protéger Actuator : autoriser seulement health/info ---
-    @actuator path /actuator*
+# --- Actuator : n'autoriser que health/info ---
     @actuatorAllowed path /actuator/health /actuator/health/* /actuator/info
-
     handle @actuatorAllowed {
                                 reverse_proxy backend:8080 {
                                                                transport http {
@@ -41,6 +38,7 @@ api.sopikeur.sn {
                                                            }
                             }
 
+    @actuator path /actuator*
     handle @actuator {
                          respond 403
                      }
@@ -54,10 +52,6 @@ api.sopikeur.sn {
                                                                  write_timeout 30s
                                                              }
 
-                                          # Forward headers (utile pour Spring)
-                                              header_up X-Forwarded-Proto {scheme}
-                                              header_up X-Forwarded-Host {host}
-                                              header_up X-Forwarded-For {remote_host}
                                           }
            }
 }
