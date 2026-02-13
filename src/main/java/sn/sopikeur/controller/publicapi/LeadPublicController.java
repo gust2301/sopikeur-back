@@ -15,6 +15,8 @@ import sn.sopikeur.dto.request.publicapi.PreorderRequestCreate;
 import sn.sopikeur.dto.request.publicapi.QuoteRequestCreate;
 import sn.sopikeur.dto.response.publicapi.ContactApiResponse;
 import sn.sopikeur.entity.leads.ContactMessage;
+import sn.sopikeur.security.ClientIpResolver;
+import sn.sopikeur.security.TurnstileVerifier;
 import sn.sopikeur.service.LeadService;
 
 @RestController
@@ -23,13 +25,15 @@ import sn.sopikeur.service.LeadService;
 public class LeadPublicController {
 
     private final LeadService leadService;
+    private final ClientIpResolver clientIpResolver;
+    private final TurnstileVerifier turnstileVerifier;
 
     @PostMapping("/quotes")
     public ResponseEntity<Void> createQuote(
         HttpServletRequest httpRequest,
         @Valid @RequestBody QuoteRequestCreate request
     ) {
-        leadService.createQuote(request, resolveClientKey(httpRequest));
+        leadService.createQuote(request, clientIpResolver.resolve(httpRequest));
         return ResponseEntity.ok().build();
     }
 
@@ -38,7 +42,14 @@ public class LeadPublicController {
         HttpServletRequest httpRequest,
         @Valid @RequestBody ContactMessageCreate request
     ) {
-        ContactMessage saved = leadService.createContact(request, resolveClientKey(httpRequest));
+        assertContactPayloadAllowed(request);
+        String clientIp = clientIpResolver.resolve(httpRequest);
+
+        if (turnstileVerifier.isEnabled() && !turnstileVerifier.verify(request.getTurnstileToken(), clientIp)) {
+            throw new IllegalArgumentException("Requête invalide");
+        }
+
+        ContactMessage saved = leadService.createContact(request, clientIp);
         ContactApiResponse response = new ContactApiResponse(
             "Contact request received",
             "cnt_" + saved.getId()
@@ -51,15 +62,21 @@ public class LeadPublicController {
         HttpServletRequest httpRequest,
         @Valid @RequestBody PreorderRequestCreate request
     ) {
-        leadService.createPreorder(request, resolveClientKey(httpRequest));
+        leadService.createPreorder(request, clientIpResolver.resolve(httpRequest));
         return ResponseEntity.ok().build();
     }
 
-    private String resolveClientKey(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+    private void assertContactPayloadAllowed(ContactMessageCreate request) {
+        if (request.getWebsite() != null && !request.getWebsite().isBlank()) {
+            throw new IllegalArgumentException("Requête invalide");
         }
-        return request.getRemoteAddr();
+
+        String message = request.getMessage();
+        if (message != null) {
+            int count = message.toLowerCase().split("http", -1).length - 1;
+            if (count > 2) {
+                throw new IllegalArgumentException("Requête invalide");
+            }
+        }
     }
 }
