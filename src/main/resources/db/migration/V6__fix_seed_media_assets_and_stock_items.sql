@@ -1,8 +1,8 @@
 -- V6__fix_seed_media_assets_and_stock_items.sql
--- Corrective seed for environments where media_assets columns are url/alt.
+-- Corrective seed for environments where media_assets columns are path/name.
 -- Keeps inserts idempotent and avoids touching stock_items.created_at on update.
 
-INSERT INTO media_assets (id, url, alt, size, sort_order, is_cover, product_id, inspiration_id)
+INSERT INTO media_assets (id, path, name, size, sort_order, is_cover, product_id, inspiration_id)
 VALUES
     (2001, '/assets/spc/SPC001.png', 'SPC001', NULL, 1, 1, 1001, NULL),
     (2002, '/assets/spc/SPC001_home.png', 'SPC001 intérieur', NULL, 2, 0, 1001, NULL),
@@ -37,8 +37,8 @@ VALUES
     (2210, '/assets/panels/wall_HEXAGONB.png', 'Mur TV', NULL, 1, 1, NULL, 4010)
 AS new
 ON DUPLICATE KEY UPDATE
-    url = new.url,
-    alt = new.alt,
+    path = new.path,
+    name = new.name,
     size = new.size,
     sort_order = new.sort_order,
     is_cover = new.is_cover,
