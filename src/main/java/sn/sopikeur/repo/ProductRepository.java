@@ -7,6 +7,8 @@ import sn.sopikeur.entity.catalog.Product;
 import sn.sopikeur.entity.catalog.ProductType;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
+    Optional<Product> findBySku(String sku);
+
     Optional<Product> findBySlug(String slug);
 
     List<Product> findByType(ProductType type);

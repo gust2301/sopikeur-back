@@ -11,8 +11,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import sn.sopikeur.common.constants.ApiConstants;
 import sn.sopikeur.dto.request.publicapi.ContactMessageCreate;
-import sn.sopikeur.dto.request.publicapi.PreorderRequestCreate;
-import sn.sopikeur.dto.request.publicapi.QuoteRequestCreate;
 import sn.sopikeur.dto.response.publicapi.ContactApiResponse;
 import sn.sopikeur.entity.leads.ContactMessage;
 import sn.sopikeur.security.ClientIpResolver;
@@ -27,15 +25,6 @@ public class LeadPublicController {
     private final LeadService leadService;
     private final ClientIpResolver clientIpResolver;
     private final TurnstileVerifier turnstileVerifier;
-
-    @PostMapping("/quotes")
-    public ResponseEntity<Void> createQuote(
-        HttpServletRequest httpRequest,
-        @Valid @RequestBody QuoteRequestCreate request
-    ) {
-        leadService.createQuote(request, clientIpResolver.resolve(httpRequest));
-        return ResponseEntity.ok().build();
-    }
 
     @PostMapping("/contact")
     public ResponseEntity<ContactApiResponse> createContact(
@@ -55,15 +44,6 @@ public class LeadPublicController {
             "cnt_" + saved.getId()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    @PostMapping("/preorders")
-    public ResponseEntity<Void> createPreorder(
-        HttpServletRequest httpRequest,
-        @Valid @RequestBody PreorderRequestCreate request
-    ) {
-        leadService.createPreorder(request, clientIpResolver.resolve(httpRequest));
-        return ResponseEntity.ok().build();
     }
 
     private void assertContactPayloadAllowed(ContactMessageCreate request) {
