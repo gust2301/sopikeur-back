@@ -1,0 +1,22 @@
+app:
+  jwt:
+    secret: test-test-test-test-test-test-test-test
+    expiration-minutes: 60
+  antispam:
+    contact:
+      rate-limit:
+        requests: 100000
+        window-seconds: 1
+  turnstile:
+    secret: test-secret
+
+spring:
+  jpa:
+    open-in-view: false
+  flyway:
+    enabled: true
+
+logging:
+  level:
+    root: WARN
+    org.springframework: WARN

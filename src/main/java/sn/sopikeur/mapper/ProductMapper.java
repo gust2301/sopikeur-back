@@ -30,7 +30,7 @@ public interface ProductMapper {
         return product.getMediaAssets().stream()
             .filter(MediaAsset::isCover)
             .sorted(Comparator.comparing(MediaAsset::getSortOrder, Comparator.nullsLast(Integer::compareTo)))
-            .map(MediaAsset::getUrl)
+            .map(this::resolveMediaPath)
             .findFirst()
             .orElse(null);
     }
@@ -52,9 +52,25 @@ public interface ProductMapper {
         return product.getMediaAssets().stream()
             .filter(mediaAsset -> !mediaAsset.isCover())
             .sorted(Comparator.comparing(MediaAsset::getSortOrder, Comparator.nullsLast(Integer::compareTo)))
-            .map(MediaAsset::getUrl)
+            .map(this::resolveMediaPath)
             .collect(Collectors.toList());
     }
 
     MediaAssetResponse toMediaAsset(MediaAsset mediaAsset);
+
+    default String resolveMediaPath(MediaAsset mediaAsset) {
+        if (mediaAsset == null) {
+            return null;
+        }
+        if (mediaAsset.getPath() != null && !mediaAsset.getPath().isBlank()) {
+            return mediaAsset.getPath();
+        }
+        if (mediaAsset.getUrl() == null || mediaAsset.getUrl().isBlank()) {
+            return null;
+        }
+        return mediaAsset.getUrl()
+            .replaceFirst("^https?://assets\\.sopikeur\\.sn/", "")
+            .replaceFirst("^/?assets/", "")
+            .replaceFirst("^/+", "");
+    }
 }

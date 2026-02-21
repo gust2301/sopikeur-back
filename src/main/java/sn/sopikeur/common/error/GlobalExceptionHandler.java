@@ -48,6 +48,18 @@ public class GlobalExceptionHandler {
 
 
 
+    @ExceptionHandler(StockConflictException.class)
+    public ResponseEntity<ApiError> handleStockConflict(StockConflictException ex, HttpServletRequest request) {
+        ApiError error = ApiError.builder()
+            .timestamp(OffsetDateTime.now())
+            .status(HttpStatus.CONFLICT.value())
+            .error(HttpStatus.CONFLICT.getReasonPhrase())
+            .message(ex.getMessage())
+            .path(request.getRequestURI())
+            .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
     @ExceptionHandler(TooManyRequestsException.class)
     public ResponseEntity<ApiError> handleTooManyRequests(TooManyRequestsException ex, HttpServletRequest request) {
         ApiError error = ApiError.builder()

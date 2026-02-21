@@ -27,6 +27,9 @@ public class MediaAsset {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "path")
+    private String path;
+
     @Column(name = "url", nullable = false)
     private String url;
 

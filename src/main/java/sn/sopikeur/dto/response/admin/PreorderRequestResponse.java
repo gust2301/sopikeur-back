@@ -15,6 +15,9 @@ public class PreorderRequestResponse {
     private String productSlug;
     private Integer quantity;
     private String message;
+    private String cityZone;
+    private String deliveryJson;
+    private boolean needsInstallation;
     private PreorderStatus status;
     private OffsetDateTime createdAt;
 }

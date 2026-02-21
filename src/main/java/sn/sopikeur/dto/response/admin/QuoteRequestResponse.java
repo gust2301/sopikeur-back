@@ -13,6 +13,9 @@ public class QuoteRequestResponse {
     private String email;
     private String phone;
     private String message;
+    private String cityZone;
+    private String deliveryJson;
+    private boolean needsInstallation;
     private QuoteStatus status;
     private OffsetDateTime createdAt;
 }
