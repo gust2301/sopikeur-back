@@ -8,5 +8,8 @@ import lombok.Data;
 @Builder
 public class PageResponse<T> {
     private List<T> items;
+    private int page;
+    private int size;
     private long total;
+    private int totalPages;
 }

@@ -31,6 +31,11 @@ public class LeadAdminController {
         return leadService.listQuotes();
     }
 
+    @GetMapping("/quotes/{id}")
+    public ResponseEntity<QuoteRequestResponse> getQuote(@PathVariable Long id) {
+        return ResponseEntity.ok(leadService.getQuoteById(id));
+    }
+
     @PatchMapping("/quotes/{id}")
     public ResponseEntity<QuoteRequestResponse> updateQuoteStatus(
         @PathVariable Long id,
@@ -44,6 +49,11 @@ public class LeadAdminController {
         return leadService.listContacts();
     }
 
+    @GetMapping("/contact/{id}")
+    public ResponseEntity<ContactMessageResponse> getContact(@PathVariable Long id) {
+        return ResponseEntity.ok(leadService.getContactById(id));
+    }
+
     @PatchMapping("/contact/{id}")
     public ResponseEntity<ContactMessageResponse> updateContactStatus(
         @PathVariable Long id,
@@ -55,6 +65,11 @@ public class LeadAdminController {
     @GetMapping("/preorders")
     public List<PreorderRequestResponse> listPreorders() {
         return leadService.listPreorders();
+    }
+
+    @GetMapping("/preorders/{id}")
+    public ResponseEntity<PreorderRequestResponse> getPreorder(@PathVariable Long id) {
+        return ResponseEntity.ok(leadService.getPreorderById(id));
     }
 
     @PatchMapping("/preorders/{id}")

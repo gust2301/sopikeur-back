@@ -1,0 +1,42 @@
+package sn.sopikeur.controller.admin;
+
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import sn.sopikeur.common.pagination.PageResponse;
+import sn.sopikeur.dto.response.admin.OrderAdminResponseDto;
+import sn.sopikeur.service.OrderAdminService;
+
+@RestController
+@RequestMapping("/api/v1/admin/orders")
+@RequiredArgsConstructor
+public class OrderAdminController {
+
+    private final OrderAdminService orderAdminService;
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    public OrderAdminResponseDto getById(@PathVariable Long id) {
+        return orderAdminService.getById(id);
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    public PageResponse<OrderAdminResponseDto> list(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size,
+        @RequestParam(required = false) String status
+    ) {
+        return orderAdminService.list(page, size, status);
+    }
+
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    public OrderAdminResponseDto updateStatus(
+        @PathVariable Long id,
+        @RequestBody Map<String, String> body
+    ) {
+        return orderAdminService.updateStatus(id, body.get("status"));
+    }
+}

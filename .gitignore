@@ -34,6 +34,7 @@ build/
 
 ### Environment & Secrets ###
 .env.prod
+.env.dev
 .env.local
 *.pem
 *.key
