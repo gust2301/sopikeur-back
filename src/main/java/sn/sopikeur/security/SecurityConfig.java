@@ -19,24 +19,26 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, ContactRateLimitFilter contactRateLimitFilter)
-        throws Exception {
+    public SecurityFilterChain securityFilterChain(
+        HttpSecurity http,
+        ContactRateLimitFilter contactRateLimitFilter,
+        JwtAuthenticationFilter jwtAuthenticationFilter
+    ) throws Exception {
         http
             .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .addFilterBefore(contactRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                // Actuator public (GET + HEAD)
                 .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                 .requestMatchers(HttpMethod.HEAD, "/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
+                .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/admin/auth/login", "/api/v1/admin/auth/login/").permitAll()
+                .requestMatchers("/api/v1/admin/auth/**").permitAll()
+                .requestMatchers("/api/v1/admin/**").authenticated()
                 .requestMatchers("/api/v1/**").permitAll()
-                .requestMatchers(
-                    "/swagger-ui.html",
-                    "/swagger-ui/**",
-                    "/v3/api-docs/**"
-                ).permitAll()
                 .anyRequest().denyAll()
             );
         return http.build();

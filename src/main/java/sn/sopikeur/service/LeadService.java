@@ -86,6 +86,13 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
+    public QuoteRequestResponse getQuoteById(Long id) {
+        return quoteRequestRepository.findById(id)
+            .map(leadMapper::toResponse)
+            .orElseThrow(() -> new NotFoundException("Demande de devis introuvable"));
+    }
+
+    @Transactional(readOnly = true)
     public List<ContactMessageResponse> listContacts() {
         return contactMessageRepository.findAll().stream()
             .map(leadMapper::toResponse)
@@ -93,10 +100,24 @@ public class LeadService {
     }
 
     @Transactional(readOnly = true)
+    public ContactMessageResponse getContactById(Long id) {
+        return contactMessageRepository.findById(id)
+            .map(leadMapper::toResponse)
+            .orElseThrow(() -> new NotFoundException("Message introuvable"));
+    }
+
+    @Transactional(readOnly = true)
     public List<PreorderRequestResponse> listPreorders() {
         return preorderRequestRepository.findAll().stream()
             .map(leadMapper::toResponse)
             .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public PreorderRequestResponse getPreorderById(Long id) {
+        return preorderRequestRepository.findById(id)
+            .map(leadMapper::toResponse)
+            .orElseThrow(() -> new NotFoundException("Précommande introuvable"));
     }
 
     @Transactional

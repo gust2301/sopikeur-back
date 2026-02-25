@@ -1,12 +1,10 @@
 package sn.sopikeur.common.error;
 
-import jakarta.servlet.http.HttpServletRequest;
-import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -16,71 +14,43 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
-        Map<String, String> errors = ex.getBindingResult().getFieldErrors().stream()
-            .collect(Collectors.toMap(FieldError::getField, FieldError::getDefaultMessage, (a, b) -> a));
+    public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex) {
         List<String> details = ex.getBindingResult().getFieldErrors().stream()
-            .map(FieldError::getDefaultMessage)
-            .collect(Collectors.toList());
-        ApiError error = ApiError.builder()
-            .timestamp(OffsetDateTime.now())
-            .status(HttpStatus.BAD_REQUEST.value())
-            .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
-            .message("Validation failed")
-            .path(request.getRequestURI())
-            .details(details)
-            .errors(errors)
-            .build();
-        return ResponseEntity.badRequest().body(error);
+            .map(FieldError::getDefaultMessage).toList();
+        return ResponseEntity.badRequest().body(ApiError.builder().code("VALIDATION_ERROR").message("Validation failed").details(details).build());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
-        ApiError error = ApiError.builder()
-            .timestamp(OffsetDateTime.now())
-            .status(HttpStatus.BAD_REQUEST.value())
-            .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
-            .message(ex.getMessage())
-            .path(request.getRequestURI())
-            .build();
-        return ResponseEntity.badRequest().body(error);
+    public ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.badRequest().body(ApiError.builder().code("BAD_REQUEST").message(ex.getMessage()).build());
     }
 
-
-
     @ExceptionHandler(StockConflictException.class)
-    public ResponseEntity<ApiError> handleStockConflict(StockConflictException ex, HttpServletRequest request) {
-        ApiError error = ApiError.builder()
-            .timestamp(OffsetDateTime.now())
-            .status(HttpStatus.CONFLICT.value())
-            .error(HttpStatus.CONFLICT.getReasonPhrase())
-            .message(ex.getMessage())
-            .path(request.getRequestURI())
-            .build();
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    public ResponseEntity<ApiError> handleStockConflict(StockConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(ApiError.builder().code("CONFLICT").message(ex.getMessage()).build());
     }
 
     @ExceptionHandler(TooManyRequestsException.class)
-    public ResponseEntity<ApiError> handleTooManyRequests(TooManyRequestsException ex, HttpServletRequest request) {
-        ApiError error = ApiError.builder()
-            .timestamp(OffsetDateTime.now())
-            .status(HttpStatus.TOO_MANY_REQUESTS.value())
-            .error(HttpStatus.TOO_MANY_REQUESTS.getReasonPhrase())
-            .message(ex.getMessage())
-            .path(request.getRequestURI())
-            .build();
-        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(error);
+    public ResponseEntity<ApiError> handleTooManyRequests(TooManyRequestsException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+            .body(ApiError.builder().code("TOO_MANY_REQUESTS").message(ex.getMessage()).build());
     }
 
     @ExceptionHandler(NotFoundException.class)
-    public ResponseEntity<ApiError> handleNotFound(NotFoundException ex, HttpServletRequest request) {
-        ApiError error = ApiError.builder()
-            .timestamp(OffsetDateTime.now())
-            .status(HttpStatus.NOT_FOUND.value())
-            .error(HttpStatus.NOT_FOUND.getReasonPhrase())
-            .message(ex.getMessage())
-            .path(request.getRequestURI())
-            .build();
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    public ResponseEntity<ApiError> handleNotFound(NotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.builder().code("NOT_FOUND").message(ex.getMessage()).build());
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiError> handleAuthentication(AuthenticationException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(ApiError.builder().code("UNAUTHORIZED").message("Unauthorized").build());
+    }
+
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleForbidden(AccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiError.builder().code("FORBIDDEN").message("Forbidden").build());
     }
 }

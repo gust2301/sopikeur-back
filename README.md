@@ -31,16 +31,19 @@ Le fichier `application.yml` pointe vers :
 ### Swagger
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 
-### Admin (JWT)
-Seed admin Flyway :
-- username: `admin`
-- password: `password`
+### Admin (JWT + RBAC)
+Seed Flyway crée `superadmin@sopikeur.sn` (mot de passe hashé via placeholder Flyway).
+
+Configurer le hash BCrypt du super-admin via variable d'environnement:
+```bash
+export ADMIN_SUPER_PASSWORD_HASH='$2a$10$...'
+```
 
 Récupérer un token :
 ```bash
-curl -X POST http://localhost:8080/api/v1/auth/login \
+curl -X POST http://localhost:8080/api/v1/admin/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"password"}'
+  -d '{"email":"superadmin@sopikeur.sn","password":"password"}'
 ```
 
 ### Base URL (prod)
@@ -101,12 +104,16 @@ Git Push → GitHub Actions → GHCR → VPS Deploy
 - `POST /api/v1/preorders`
 
 ### Admin (JWT)
-- `PATCH /api/v1/admin/products/{id}/stock`
+- `GET/POST/PUT/DELETE /api/v1/admin/products`
+- `GET/PUT /api/v1/admin/stocks`
 - `POST /api/v1/admin/stock/movements`
 - `GET /api/v1/admin/quotes`
 - `PATCH /api/v1/admin/quotes/{id}`
 - `GET /api/v1/admin/contact`
 - `PATCH /api/v1/admin/contact/{id}`
+- `GET/POST/PUT/DELETE /api/v1/admin/users` (SUPER_ADMIN)
+- `GET /api/v1/admin/roles` (SUPER_ADMIN)
+- `PUT /api/v1/admin/users/{id}/roles` (SUPER_ADMIN)
 - `GET /api/v1/admin/preorders`
 - `PATCH /api/v1/admin/preorders/{id}`
 - `GET/POST/PUT/DELETE /api/v1/admin/inspirations`

@@ -3,13 +3,6 @@ package sn.sopikeur.service.commerce;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
-import java.math.BigDecimal;
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.LinkedHashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import sn.sopikeur.common.error.NotFoundException;
@@ -18,7 +11,10 @@ import sn.sopikeur.dto.request.publicapi.commerce.*;
 import sn.sopikeur.dto.response.publicapi.commerce.CommerceCreateResponse;
 import sn.sopikeur.entity.catalog.Product;
 import sn.sopikeur.entity.catalog.ProductType;
-import sn.sopikeur.entity.leads.*;
+import sn.sopikeur.entity.leads.PreorderRequest;
+import sn.sopikeur.entity.leads.PreorderStatus;
+import sn.sopikeur.entity.leads.QuoteRequest;
+import sn.sopikeur.entity.leads.QuoteStatus;
 import sn.sopikeur.entity.leads.item.PreorderRequestItem;
 import sn.sopikeur.entity.leads.item.QuoteRequestItem;
 import sn.sopikeur.entity.leads.item.QuoteRequestPack;
@@ -29,6 +25,14 @@ import sn.sopikeur.entity.stock.StockItem;
 import sn.sopikeur.repo.*;
 import sn.sopikeur.repo.order.OrderItemRepository;
 import sn.sopikeur.repo.order.OrderRepository;
+
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -54,7 +58,7 @@ public class CommerceService {
         quote.setPublicId(UUID.randomUUID().toString());
         quote.setFullName(request.getCustomer().getFullName());
         quote.setPhone(request.getCustomer().getPhone());
-        quote.setEmail(request.getCustomer().getEmail() == null ? "unknown@sopikeur.local" : request.getCustomer().getEmail());
+        quote.setEmail(request.getCustomer().getEmail() == null ? "unknown@sopikeur.sn" : request.getCustomer().getEmail());
         quote.setProjectType(request.getProjectType());
         quote.setCityZone(toLegacyCityZone(delivery, request.getCityZone()));
         quote.setDeliveryJson(toDeliveryJson(delivery));
@@ -98,7 +102,7 @@ public class CommerceService {
         preorder.setPublicId(UUID.randomUUID().toString());
         preorder.setFullName(request.getContact().getFullName());
         preorder.setPhone(request.getContact().getPhone());
-        preorder.setEmail(request.getContact().getEmail() == null ? "unknown@sopikeur.local" : request.getContact().getEmail());
+        preorder.setEmail(request.getContact().getEmail() == null ? "unknown@sopikeur.sn" : request.getContact().getEmail());
         preorder.setCityZone(toLegacyCityZone(delivery, request.getCityZone()));
         preorder.setDeliveryJson(toDeliveryJson(delivery));
         preorder.setNeedsInstallation(Boolean.TRUE.equals(request.getInstallRequested()));

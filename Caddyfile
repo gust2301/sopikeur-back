@@ -17,14 +17,31 @@ api.sopikeur.sn {
             format console
         }
 
-# Headers sécurité (évite les doublons avec Spring)
+# Ne pas indexer l'API
     header {
                Referrer-Policy "strict-origin-when-cross-origin"
                Permissions-Policy "geolocation=(), microphone=(), camera=()"
-
-           # HSTS: safe (sans preload tant que tout n'est pas figé)
                Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+           # IMPORTANT pour Google
+               X-Robots-Tag "noindex, nofollow"
            }
+
+# robots.txt spécifique à l’API (bloque le crawl)
+    @robots path /robots.txt
+    handle @robots {
+                       respond 200 "User-agent: *\nDisallow: /\n" {
+                                                                      header Content-Type text/plain; charset=utf-8
+                                                                  }
+                   }
+
+# (Optionnel) racine / : répondre un 200 minimal noindex
+    @root path /
+    handle @root {
+                     respond 200 "<!doctype html><meta name='robots' content='noindex,nofollow'><title>API</title>" {
+                                                                                                                        header Content-Type text/html; charset=utf-8
+                                                                                                                    }
+                 }
 
 # --- Actuator : n'autoriser que health/info ---
     @actuatorAllowed path /actuator/health /actuator/health/* /actuator/info

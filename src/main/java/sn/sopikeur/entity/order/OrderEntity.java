@@ -1,6 +1,8 @@
 package sn.sopikeur.entity.order;
 
 import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -46,4 +48,7 @@ public class OrderEntity extends Auditable {
 
     @Column(name = "delivery_json", columnDefinition = "json")
     private String deliveryJson;
+
+    @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
+    private List<OrderItem> items = new ArrayList<>();
 }
