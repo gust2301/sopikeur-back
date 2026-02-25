@@ -10,19 +10,25 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sn.sopikeur.common.error.NotFoundException;
 import sn.sopikeur.common.pagination.PageResponse;
+import sn.sopikeur.dto.request.admin.ProductAssetAssignmentDto;
 import sn.sopikeur.dto.request.admin.ProductUpsertRequestDto;
 import sn.sopikeur.dto.response.admin.ProductResponseDto;
 import sn.sopikeur.entity.catalog.Product;
 import sn.sopikeur.entity.catalog.ProductStatus;
 import sn.sopikeur.entity.catalog.ProductType;
+import sn.sopikeur.entity.media.MediaAsset;
 import sn.sopikeur.mapper.AdminProductMapper;
+import sn.sopikeur.repo.MediaAssetRepository;
 import sn.sopikeur.repo.ProductRepository;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class AdminProductService {
 
     private final ProductRepository productRepository;
+    private final MediaAssetRepository mediaAssetRepository;
     private final AdminProductMapper adminProductMapper;
 
     @Transactional(readOnly = true)
@@ -90,6 +96,20 @@ public class AdminProductService {
         Product p = productRepository.findById(id).orElseThrow(() -> new NotFoundException("Produit introuvable"));
         p.setStatus(ProductStatus.ARCHIVED);
         productRepository.save(p);
+    }
+
+    @Transactional
+    public void setProductAssets(Long productId, List<ProductAssetAssignmentDto> assignments) {
+        Product product = productRepository.findById(productId)
+            .orElseThrow(() -> new NotFoundException("Produit introuvable"));
+        mediaAssetRepository.detachAllFromProduct(productId);
+        for (var dto : assignments) {
+            MediaAsset asset = mediaAssetRepository.findById(dto.getAssetId())
+                .orElseThrow(() -> new NotFoundException("Asset introuvable : " + dto.getAssetId()));
+            asset.setProduct(product);
+            asset.setCover(dto.isCover());
+            asset.setSortOrder(dto.getSortOrder());
+        }
     }
 
     private void apply(Product p, ProductUpsertRequestDto dto) {

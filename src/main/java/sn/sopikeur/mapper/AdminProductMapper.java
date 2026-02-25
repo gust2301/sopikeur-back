@@ -4,6 +4,7 @@ import java.util.Comparator;
 import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import sn.sopikeur.dto.response.admin.MediaAssetResponseDto;
 import sn.sopikeur.dto.response.admin.ProductResponseDto;
 import sn.sopikeur.entity.catalog.Product;
 import sn.sopikeur.entity.media.MediaAsset;
@@ -13,6 +14,7 @@ public interface AdminProductMapper {
 
     @Mapping(target = "coverUrl", expression = "java(resolveCoverUrl(product))")
     @Mapping(target = "images",   expression = "java(resolveImageUrls(product))")
+    @Mapping(target = "assets",   expression = "java(resolveAssets(product))")
     ProductResponseDto toDto(Product product);
 
     default String resolveCoverUrl(Product product) {
@@ -31,6 +33,22 @@ public interface AdminProductMapper {
             .sorted(Comparator.comparingInt(
                 a -> (a.getSortOrder() != null ? a.getSortOrder() : Integer.MAX_VALUE)))
             .map(MediaAsset::getUrl)
+            .toList();
+    }
+
+    default List<MediaAssetResponseDto> resolveAssets(Product product) {
+        if (product.getMediaAssets() == null) return List.of();
+        return product.getMediaAssets().stream()
+            .sorted(Comparator.comparingInt(
+                a -> (a.getSortOrder() != null ? a.getSortOrder() : Integer.MAX_VALUE)))
+            .map(a -> MediaAssetResponseDto.builder()
+                .id(a.getId())
+                .url(a.getUrl())
+                .path(a.getPath() != null && !a.getPath().isBlank() ? a.getPath() : a.getUrl())
+                .alt(a.getAlt())
+                .cover(a.isCover())
+                .sortOrder(a.getSortOrder())
+                .build())
             .toList();
     }
 }

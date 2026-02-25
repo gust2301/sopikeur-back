@@ -25,6 +25,7 @@ public class ProductResponseDto {
     private String descriptionLong;
     private String coverUrl;
     private List<String> images;
+    private List<MediaAssetResponseDto> assets;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

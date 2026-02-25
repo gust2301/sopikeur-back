@@ -3,14 +3,18 @@ package sn.sopikeur.controller.admin;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import sn.sopikeur.common.pagination.PageResponse;
+import sn.sopikeur.dto.request.admin.ProductAssetAssignmentDto;
 import sn.sopikeur.dto.request.admin.ProductUpsertRequestDto;
 import sn.sopikeur.dto.response.admin.ProductResponseDto;
 import sn.sopikeur.entity.catalog.ProductStatus;
 import sn.sopikeur.entity.catalog.ProductType;
 import sn.sopikeur.service.AdminProductService;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/products")
@@ -51,4 +55,12 @@ public class ProductAdminController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
     public void delete(@PathVariable Long id) { service.delete(id); }
+
+    @PutMapping("/{id}/assets")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','EDITOR')")
+    public void setAssets(@PathVariable Long id,
+                          @RequestBody List<ProductAssetAssignmentDto> body) {
+        service.setProductAssets(id, body);
+    }
 }
