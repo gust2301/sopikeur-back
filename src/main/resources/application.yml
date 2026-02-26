@@ -24,6 +24,10 @@ app:
     expiration-minutes: ${APP_JWT_EXPIRATION_MINUTES:1440}
   cors:
     allowed-origins: []
+  push:
+    public-key:  ${VAPID_PUBLIC_KEY:}
+    private-key: ${VAPID_PRIVATE_KEY:}
+    subject:     mailto:admin@sopikeur.sn
   antispam:
     contact:
       rate-limit:

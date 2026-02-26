@@ -3,6 +3,7 @@ package sn.sopikeur.service;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sn.sopikeur.common.error.NotFoundException;
@@ -29,6 +30,8 @@ import sn.sopikeur.repo.QuoteRequestRepository;
 @Service
 @RequiredArgsConstructor
 public class LeadService {
+
+    private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "createdAt");
 
     private final QuoteRequestRepository quoteRequestRepository;
     private final ContactMessageRepository contactMessageRepository;
@@ -80,7 +83,7 @@ public class LeadService {
 
     @Transactional(readOnly = true)
     public List<QuoteRequestResponse> listQuotes() {
-        return quoteRequestRepository.findAll().stream()
+        return quoteRequestRepository.findAll(NEWEST_FIRST).stream()
             .map(leadMapper::toResponse)
             .collect(Collectors.toList());
     }
@@ -94,7 +97,7 @@ public class LeadService {
 
     @Transactional(readOnly = true)
     public List<ContactMessageResponse> listContacts() {
-        return contactMessageRepository.findAll().stream()
+        return contactMessageRepository.findAll(NEWEST_FIRST).stream()
             .map(leadMapper::toResponse)
             .collect(Collectors.toList());
     }
@@ -108,7 +111,7 @@ public class LeadService {
 
     @Transactional(readOnly = true)
     public List<PreorderRequestResponse> listPreorders() {
-        return preorderRequestRepository.findAll().stream()
+        return preorderRequestRepository.findAll(NEWEST_FIRST).stream()
             .map(leadMapper::toResponse)
             .collect(Collectors.toList());
     }

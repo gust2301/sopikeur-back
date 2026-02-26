@@ -147,6 +147,18 @@
             <artifactId>inugami_logs_obfuscator</artifactId>
             <version>4.2.4</version>
         </dependency>
+
+        <!-- Web Push / VAPID -->
+        <dependency>
+            <groupId>nl.martijndwars</groupId>
+            <artifactId>web-push</artifactId>
+            <version>5.1.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>1.78.1</version>
+        </dependency>
     </dependencies>
 
 

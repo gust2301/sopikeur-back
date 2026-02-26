@@ -10,4 +10,5 @@ import sn.sopikeur.entity.order.OrderStatus;
 public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
     List<OrderEntity> findAllByOrderByCreatedAtDesc(Pageable pageable);
     Page<OrderEntity> findByStatus(OrderStatus status, Pageable pageable);
+    long countByStatus(OrderStatus status);
 }

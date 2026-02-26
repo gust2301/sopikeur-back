@@ -6,6 +6,7 @@ import java.util.List;
 public record DashboardStatsDto(
     long totalProducts,
     long totalOrders,
+    long pendingOrders,
     long pendingQuotes,
     long pendingContacts,
     long pendingPreorders,
