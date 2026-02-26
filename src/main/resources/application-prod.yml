@@ -16,6 +16,7 @@ app:
     allowed-origins:
       - "https://sopikeur.sn"
       - "https://www.sopikeur.sn"
+      - "https://admin.sopikeur.sn"
       - "https://develop.sopikeur-front.pages.dev"
   turnstile:
     secret: ${APP_TURNSTILE_SECRET:}
