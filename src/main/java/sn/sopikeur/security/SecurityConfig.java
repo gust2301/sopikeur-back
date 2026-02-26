@@ -37,6 +37,7 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/admin/auth/login", "/api/v1/admin/auth/login/").permitAll()
                 .requestMatchers("/api/v1/admin/auth/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/admin/push/vapid-public-key").permitAll()
                 .requestMatchers("/api/v1/admin/**").authenticated()
                 .requestMatchers("/api/v1/**").permitAll()
                 .anyRequest().denyAll()
