@@ -12,6 +12,7 @@ import sn.sopikeur.entity.leads.ContactStatus;
 import sn.sopikeur.entity.leads.PreorderStatus;
 import sn.sopikeur.entity.leads.QuoteStatus;
 import sn.sopikeur.entity.order.OrderItem;
+import sn.sopikeur.entity.order.OrderStatus;
 import sn.sopikeur.repo.ContactMessageRepository;
 import sn.sopikeur.repo.PreorderRequestRepository;
 import sn.sopikeur.repo.ProductRepository;
@@ -32,12 +33,13 @@ public class DashboardAdminService {
 
     @Transactional(readOnly = true)
     public DashboardStatsDto getStats() {
-        long totalProducts   = productRepository.count();
-        long totalOrders     = orderRepository.count();
-        long pendingQuotes   = quoteRequestRepository.countByStatus(QuoteStatus.NEW);
-        long pendingContacts = contactMessageRepository.countByStatus(ContactStatus.NEW);
+        long totalProducts    = productRepository.count();
+        long totalOrders      = orderRepository.count();
+        long pendingOrders    = orderRepository.countByStatus(OrderStatus.PENDING_CONFIRMATION);
+        long pendingQuotes    = quoteRequestRepository.countByStatus(QuoteStatus.NEW);
+        long pendingContacts  = contactMessageRepository.countByStatus(ContactStatus.NEW);
         long pendingPreorders = preorderRequestRepository.countByStatus(PreorderStatus.NEW);
-        var totalRevenue     = orderItemRepository.sumRevenue();
+        var  totalRevenue     = orderItemRepository.sumRevenue();
 
         List<RecentOrderDto> recentOrders = orderRepository
             .findAllByOrderByCreatedAtDesc(PageRequest.of(0, 5))
@@ -62,6 +64,7 @@ public class DashboardAdminService {
         return new DashboardStatsDto(
             totalProducts,
             totalOrders,
+            pendingOrders,
             pendingQuotes,
             pendingContacts,
             pendingPreorders,

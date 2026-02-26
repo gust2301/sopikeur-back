@@ -25,6 +25,7 @@ import sn.sopikeur.entity.stock.StockItem;
 import sn.sopikeur.repo.*;
 import sn.sopikeur.repo.order.OrderItemRepository;
 import sn.sopikeur.repo.order.OrderRepository;
+import sn.sopikeur.service.NotificationService;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -47,6 +48,7 @@ public class CommerceService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final ObjectMapper objectMapper;
+    private final NotificationService notificationService;
 
     @Transactional
     public CommerceCreateResponse createQuote(QuoteCreateRequest request) {
@@ -176,6 +178,7 @@ public class CommerceService {
             orderItemRepository.save(orderItem);
         }
 
+        notificationService.notifyOrderCreated(saved);
         return response(saved.getPublicId(), saved.getOrderNumber(), saved.getStatus().name(), saved.getCreatedAt());
     }
 
