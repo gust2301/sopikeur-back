@@ -93,10 +93,12 @@ public class NotificationService {
 
         String payload;
         try {
+            // NGSW lit notification.data.url pour la navigation au clic.
+            // Le champ "url" doit donc être dans l'objet "data" imbriqué.
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("title", title);
             data.put("body", body);
-            data.put("url", url);
+            data.put("data", Map.of("url", url));
             payload = objectMapper.writeValueAsString(data);
         } catch (Exception e) {
             log.error("Failed to serialize push payload", e);
