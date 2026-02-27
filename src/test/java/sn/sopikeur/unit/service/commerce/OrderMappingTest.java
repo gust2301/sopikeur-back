@@ -25,6 +25,7 @@ import sn.sopikeur.entity.stock.StockItem;
 import sn.sopikeur.repo.*;
 import sn.sopikeur.repo.order.OrderItemRepository;
 import sn.sopikeur.repo.order.OrderRepository;
+import sn.sopikeur.service.NotificationService;
 import sn.sopikeur.service.commerce.CommerceService;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,6 +40,7 @@ class OrderMappingTest {
     @Mock private StockItemRepository stockItemRepository;
     @Mock private OrderRepository orderRepository;
     @Mock private OrderItemRepository orderItemRepository;
+    @Mock private NotificationService notificationService;
 
     private CommerceService commerceService;
 
@@ -54,7 +56,8 @@ class OrderMappingTest {
             stockItemRepository,
             orderRepository,
             orderItemRepository,
-            new ObjectMapper()
+            new ObjectMapper(),
+            notificationService
         );
     }
 
