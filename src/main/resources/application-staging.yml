@@ -1,0 +1,14 @@
+spring:
+  flyway:
+    clean-disabled: false  # STAGING ONLY — permet flyway:clean pour reset la BDD
+
+logging:
+  level:
+    sn.sopikeur: DEBUG
+
+app:
+  cors:
+    allowed-origins:
+      - "https://develop.sopikeur-backoffice.pages.dev"
+      - "https://develop.sopikeur-front.pages.dev"
+      - "http://localhost:4200"
