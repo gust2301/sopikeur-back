@@ -20,7 +20,9 @@ import sn.sopikeur.entity.leads.item.QuoteRequestItem;
 import sn.sopikeur.entity.leads.item.QuoteRequestPack;
 import sn.sopikeur.entity.order.OrderEntity;
 import sn.sopikeur.entity.order.OrderItem;
+import sn.sopikeur.entity.order.OrderPaymentPlan;
 import sn.sopikeur.entity.order.OrderStatus;
+import sn.sopikeur.entity.payment.PaymentStatus;
 import sn.sopikeur.entity.stock.StockItem;
 import sn.sopikeur.repo.*;
 import sn.sopikeur.repo.order.OrderItemRepository;
@@ -146,10 +148,20 @@ public class CommerceService {
             }
         }
 
+        OrderPaymentPlan plan = request.getPaymentPlan() != null
+            ? request.getPaymentPlan() : OrderPaymentPlan.CASH_ON_DELIVERY;
+        String methodSelected = request.getPaymentMethodSelected() != null
+            ? request.getPaymentMethodSelected() : "STRIPE";
+
         OrderEntity order = new OrderEntity();
         order.setPublicId(UUID.randomUUID().toString());
         order.setOrderNumber(generateOrderNumber());
-        order.setStatus(OrderStatus.PENDING_CONFIRMATION);
+        order.setLegacyStatus("SUBMITTED");
+        order.setOrderStatus(OrderStatus.SUBMITTED);
+        order.setPaymentStatus(PaymentStatus.UNPAID);
+        order.setPaymentPlan(plan);
+        order.setPaymentMethodSelected(methodSelected);
+        order.setAmountPaid(BigDecimal.ZERO);
         order.setFullName(request.getCustomer().getFullName());
         order.setPhone(request.getCustomer().getPhone());
         order.setEmail(request.getCustomer().getEmail());
@@ -159,6 +171,7 @@ public class CommerceService {
         order.setDeliveryJson(toDeliveryJson(delivery));
         OrderEntity saved = orderRepository.save(order);
 
+        BigDecimal amountTotal = BigDecimal.ZERO;
         for (CommerceItemCreateRequest item : request.getItems()) {
             Product product = resolveProduct(item);
             StockItem stockItem = stockItemRepository.findByProductId(product.getId())
@@ -167,6 +180,9 @@ public class CommerceService {
             stockItem.setQuantity(stockItem.getQuantity() - qty);
             stockItemRepository.save(stockItem);
 
+            BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(qty));
+            amountTotal = amountTotal.add(lineTotal);
+
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(saved);
             orderItem.setProduct(product);
@@ -174,12 +190,31 @@ public class CommerceService {
             orderItem.setUnit(item.getUnit().name());
             orderItem.setQty(qty);
             orderItem.setUnitPriceSnapshot(product.getPrice());
-            orderItem.setLineTotalSnapshot(product.getPrice().multiply(BigDecimal.valueOf(qty)));
+            orderItem.setLineTotalSnapshot(lineTotal);
             orderItemRepository.save(orderItem);
         }
 
+        // Compute deposit amount for DEPOSIT_50 plan
+        BigDecimal depositAmount = null;
+        if (plan == OrderPaymentPlan.DEPOSIT_50) {
+            depositAmount = amountTotal.multiply(BigDecimal.valueOf(0.5))
+                .setScale(0, java.math.RoundingMode.HALF_UP);
+        }
+
+        saved.setAmountTotal(amountTotal);
+        saved.setAmountDue(amountTotal);
+        saved.setDepositAmount(depositAmount);
+        orderRepository.save(saved);
+
         notificationService.notifyOrderCreated(saved);
-        return response(saved.getPublicId(), saved.getOrderNumber(), saved.getStatus().name(), saved.getCreatedAt());
+        return CommerceCreateResponse.builder()
+            .id(saved.getPublicId())
+            .orderNumber(saved.getOrderNumber())
+            .status(saved.getOrderStatus().name())
+            .paymentPlan(saved.getPaymentPlan().name())
+            .paymentStatus(saved.getPaymentStatus().name())
+            .createdAt(saved.getCreatedAt().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+            .build();
     }
 
     private String generateOrderNumber() {

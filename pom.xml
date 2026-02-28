@@ -148,6 +148,13 @@
             <version>4.2.4</version>
         </dependency>
 
+        <!-- Stripe -->
+        <dependency>
+            <groupId>com.stripe</groupId>
+            <artifactId>stripe-java</artifactId>
+            <version>26.3.0</version>
+        </dependency>
+
         <!-- Web Push / VAPID -->
         <dependency>
             <groupId>nl.martijndwars</groupId>

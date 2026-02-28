@@ -1,8 +1,9 @@
 package sn.sopikeur.entity.order;
 
 public enum OrderStatus {
-    PENDING_CONFIRMATION,
+    SUBMITTED,
     CONFIRMED,
-    CANCELLED,
-    FULFILLED
+    IN_PROGRESS,
+    DELIVERED,
+    CANCELED
 }

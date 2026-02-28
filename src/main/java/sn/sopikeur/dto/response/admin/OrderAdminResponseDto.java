@@ -17,17 +17,27 @@ public class OrderAdminResponseDto {
     private String reference;
     private String status;
 
-    private CustomerDto   customer;
-    private DeliveryDto   delivery;
-    private List<ItemDto> items;
-    private AmountsDto    amounts;
-    private TimestampsDto timestamps;
+    // ── Statuts séparés ──────────────────────────────────────────────────────
+    private String orderStatus;
+    private String paymentStatus;
+    private String paymentPlan;
+    private String paymentMethodSelected;
+
+    private CustomerDto          customer;
+    private DeliveryDto          delivery;
+    private List<ItemDto>        items;
+    private AmountsDto           amounts;
+    private TimestampsDto        timestamps;
+    private List<PaymentIntentDto> payments;
 
     // ── Champs plats conservés pour rétrocompat liste ────────────────────────
     private String     customerName;
     private String     customerEmail;
     private String     customerPhone;
     private BigDecimal totalAmount;
+    private BigDecimal amountPaid;
+    private BigDecimal amountDue;
+    private BigDecimal depositAmount;
     private String     createdAt;
 
     // ── Nested DTOs ──────────────────────────────────────────────────────────
@@ -62,11 +72,25 @@ public class OrderAdminResponseDto {
     @Data @Builder
     public static class AmountsDto {
         private BigDecimal totalAmount;
+        private BigDecimal amountPaid;
+        private BigDecimal amountDue;
+        private BigDecimal depositAmount;
     }
 
     @Data @Builder
     public static class TimestampsDto {
         private OffsetDateTime createdAt;
         private OffsetDateTime updatedAt;
+    }
+
+    @Data @Builder
+    public static class PaymentIntentDto {
+        private String        publicId;
+        private Long          amount;
+        private String        currency;
+        private String        purpose;
+        private String        status;
+        private String        checkoutUrl;
+        private OffsetDateTime createdAt;
     }
 }

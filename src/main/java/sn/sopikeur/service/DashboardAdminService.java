@@ -35,7 +35,7 @@ public class DashboardAdminService {
     public DashboardStatsDto getStats() {
         long totalProducts    = productRepository.count();
         long totalOrders      = orderRepository.count();
-        long pendingOrders    = orderRepository.countByStatus(OrderStatus.PENDING_CONFIRMATION);
+        long pendingOrders    = orderRepository.countByOrderStatus(OrderStatus.SUBMITTED);
         long pendingQuotes    = quoteRequestRepository.countByStatus(QuoteStatus.NEW);
         long pendingContacts  = contactMessageRepository.countByStatus(ContactStatus.NEW);
         long pendingPreorders = preorderRequestRepository.countByStatus(PreorderStatus.NEW);
@@ -54,7 +54,7 @@ public class DashboardAdminService {
                     o.getFullName(),
                     o.getEmail(),
                     o.getPhone(),
-                    o.getStatus() != null ? o.getStatus().name() : null,
+                    o.getOrderStatus() != null ? o.getOrderStatus().name() : o.getLegacyStatus(),
                     totalAmount,
                     o.getCreatedAt() != null ? o.getCreatedAt().toString() : null
                 );

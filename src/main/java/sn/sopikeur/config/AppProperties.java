@@ -11,6 +11,7 @@ public class AppProperties {
     private Cors cors = new Cors();
     private Antispam antispam = new Antispam();
     private Turnstile turnstile = new Turnstile();
+    private Stripe stripe = new Stripe();
 
     @Data
     public static class Jwt {
@@ -42,5 +43,15 @@ public class AppProperties {
     @Data
     public static class Turnstile {
         private String secret;
+    }
+
+    @Data
+    public static class Stripe {
+        private String secretKey;
+        private String webhookSecret;
+        private String successUrl;
+        private String cancelUrl;
+        private String currency = "xof";
+        private long webhookToleranceSeconds = 300;
     }
 }

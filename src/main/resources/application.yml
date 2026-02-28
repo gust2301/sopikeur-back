@@ -35,6 +35,13 @@ app:
         window-seconds: ${APP_ANTISPAM_CONTACT_WINDOW_SECONDS:60}
   turnstile:
     secret: ${APP_TURNSTILE_SECRET:}
+  stripe:
+    secret-key: ${STRIPE_SECRET_KEY:}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+    success-url: ${STRIPE_SUCCESS_URL:}
+    cancel-url: ${STRIPE_CANCEL_URL:}
+    currency: ${STRIPE_CURRENCY:xof}
+    webhook-tolerance-seconds: ${STRIPE_WEBHOOK_TOLERANCE_SECONDS:300}
 
 management:
   endpoints:

@@ -13,5 +13,7 @@ public class CommerceCreateResponse {
     private String id;
     private String orderNumber;
     private String status;
+    private String paymentPlan;
+    private String paymentStatus;
     private String createdAt;
 }
