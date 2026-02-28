@@ -1,15 +1,29 @@
 # ==============================================================================
-# Docker Compose - Configuration PRODUCTION
+# Docker Compose - Configuration PRODUCTION + STAGING
 # ==============================================================================
-# Services: MySQL 8.4 + Backend Spring Boot
-# Le backend utilise une image pré-buildée depuis GHCR (GitHub Container Registry)
+# Services:
+#   mysql           → DB production
+#   mysql_staging   → DB staging (isolée, volume dédié)
+#   backend         → API Spring Boot production
+#   backend_staging → API Spring Boot staging
+#   caddy           → Reverse proxy HTTPS commun (Let's Encrypt)
+#
+# Secrets:
+#   .env.prod     → variables production (gitignored)
+#   .env.staging  → variables staging    (gitignored)
+#   Les deux sont chargés uniquement par leur service respectif.
 # ==============================================================================
 
 version: '3.8'
 
 services:
+
+  # ============================================================================
+  # PRODUCTION
+  # ============================================================================
+
   # ----------------------------------------------------------------------------
-  # MySQL Database
+  # MySQL Production
   # ----------------------------------------------------------------------------
   mysql:
     image: mysql:8.4
@@ -17,17 +31,15 @@ services:
     restart: unless-stopped
 
     environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE:      ${MYSQL_DATABASE}
+      MYSQL_USER:          ${MYSQL_USER}
+      MYSQL_PASSWORD:      ${MYSQL_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      # Optimisations MySQL pour production
       MYSQL_INITDB_SKIP_TZINFO: 1
 
     volumes:
       - mysql_data:/var/lib/mysql
 
-    # Healthcheck pour s'assurer que MySQL est prêt avant de démarrer le backend
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD || exit 1"]
       interval: 10s
@@ -38,45 +50,29 @@ services:
     networks:
       - sopikeur-internal
 
-    # MySQL n'est PAS exposé à l'extérieur (pas de ports: mapping)
-    # Uniquement accessible depuis le réseau interne Docker
-
   # ----------------------------------------------------------------------------
-  # Backend Spring Boot
+  # Backend Production
   # ----------------------------------------------------------------------------
   backend:
-    # Image pré-buildée depuis GHCR
-    # Le tag est paramétré via APP_IMAGE_TAG dans .env.prod (ex: latest ou SHA court)
     image: ghcr.io/gust2301/sopikeur-back:${APP_IMAGE_TAG:-latest}
     container_name: sopikeur-backend
     restart: unless-stopped
 
-    # Charge toutes les variables depuis .env.prod
     env_file:
       - .env.prod
 
     environment:
-      # Force le profil Spring à 'prod'
       SPRING_PROFILES_ACTIVE: prod
 
-      # Connexion MySQL (via hostname du service Docker)
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_URL:      jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
 
-      # JWT Configuration
-      APP_JWT_SECRET: ${APP_JWT_SECRET}
-      APP_JWT_EXPIRATION_MINUTES: ${APP_JWT_EXPIRATION_MINUTES:-1440}
+      APP_JWT_SECRET:              ${APP_JWT_SECRET}
+      APP_JWT_EXPIRATION_MINUTES:  ${APP_JWT_EXPIRATION_MINUTES:-1440}
 
-      # Options JVM (optionnel, pour tuning mémoire)
       JAVA_OPTS: ${JAVA_OPTS:--Xmx512m -Xms256m}
 
-    # Pas d'exposition publique: accès uniquement via le réseau Docker interne
-    # Pour debug local VPS uniquement, vous pouvez temporairement utiliser:
-    # ports:
-    #   - "127.0.0.1:8080:8080"
-
-    # Attend que MySQL soit healthy avant de démarrer
     depends_on:
       mysql:
         condition: service_healthy
@@ -84,30 +80,111 @@ services:
     networks:
       - sopikeur-internal
 
-    # Healthcheck basé sur Spring Boot Actuator
     healthcheck:
-      test: [ "CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1" ]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 60s
 
+  # ============================================================================
+  # STAGING
+  # ============================================================================
+
   # ----------------------------------------------------------------------------
-  # Caddy Reverse Proxy (HTTPS)
+  # MySQL Staging — volume dédié, jamais exposé publiquement
   # ----------------------------------------------------------------------------
+  mysql_staging:
+    image: mysql:8.4
+    container_name: sopikeur-mysql-staging
+    restart: unless-stopped
+
+    environment:
+      MYSQL_DATABASE:      ${MYSQL_STAGING_DATABASE}
+      MYSQL_USER:          ${MYSQL_STAGING_USER}
+      MYSQL_PASSWORD:      ${MYSQL_STAGING_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_STAGING_ROOT_PASSWORD}
+      MYSQL_INITDB_SKIP_TZINFO: 1
+
+    volumes:
+      - mysql_staging_data:/var/lib/mysql
+
+    # Debug local VPS uniquement — ne jamais ouvrir sur 0.0.0.0 :
+    # ports:
+    #   - "127.0.0.1:3307:3306"
+
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_STAGING_ROOT_PASSWORD || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    networks:
+      - sopikeur-internal
+
+  # ----------------------------------------------------------------------------
+  # Backend Staging — profil Spring "staging", pointe sur mysql_staging
+  # ----------------------------------------------------------------------------
+  backend_staging:
+    # Tag "develop" par défaut → image buildée depuis la branche develop.
+    # Surcharger APP_IMAGE_TAG_STAGING dans .env.staging pour cibler un SHA précis.
+    image: ghcr.io/gust2301/sopikeur-back:${APP_IMAGE_TAG_STAGING:-develop}
+    container_name: sopikeur-backend-staging
+    restart: unless-stopped
+
+    env_file:
+      - .env.staging
+
+    environment:
+      SPRING_PROFILES_ACTIVE: staging
+
+      SPRING_DATASOURCE_URL:      jdbc:mysql://mysql_staging:3306/${MYSQL_STAGING_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_STAGING_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_STAGING_PASSWORD}
+
+      APP_JWT_SECRET:             ${APP_JWT_SECRET_STAGING}
+      APP_JWT_EXPIRATION_MINUTES: ${APP_JWT_EXPIRATION_MINUTES:-1440}
+
+      # JVM légèrement réduite en staging (même VPS, ressources partagées)
+      JAVA_OPTS: ${JAVA_OPTS_STAGING:--Xmx384m -Xms192m}
+
+    depends_on:
+      mysql_staging:
+        condition: service_healthy
+
+    networks:
+      - sopikeur-internal
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s   # Flyway migrations peuvent prendre un peu plus longtemps au 1er boot
+
+  # ============================================================================
+  # CADDY — Reverse proxy commun (prod + staging)
+  # ============================================================================
   caddy:
     image: caddy:2
     container_name: sopikeur-caddy
     restart: unless-stopped
+
+    # Caddy démarre dès que les containers existent (il retry les connexions seul)
     depends_on:
       - backend
+      - backend_staging
+
     ports:
       - "80:80"
       - "443:443"
+
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+
     networks:
       - sopikeur-internal
 
@@ -118,9 +195,15 @@ volumes:
   mysql_data:
     driver: local
     name: sopikeur_mysql_data
+
+  mysql_staging_data:
+    driver: local
+    name: sopikeur_mysql_staging_data
+
   caddy_data:
     driver: local
     name: sopikeur_caddy_data
+
   caddy_config:
     driver: local
     name: sopikeur_caddy_config

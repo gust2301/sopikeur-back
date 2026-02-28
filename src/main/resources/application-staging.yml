@@ -1,0 +1,81 @@
+# ==============================================================================
+# Spring Boot — Profil STAGING
+# ==============================================================================
+# Chargé quand SPRING_PROFILES_ACTIVE=staging
+# Hérite de application.yml (base commune).
+# NE JAMAIS copier ce fichier en prod ni activer ce profil sur le container prod.
+# ==============================================================================
+
+spring:
+
+  # ─── Datasource ─────────────────────────────────────────────────────────────
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url:      ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+  # ─── JPA ────────────────────────────────────────────────────────────────────
+  jpa:
+    hibernate:
+      ddl-auto: validate      # Flyway gère le schéma, Hibernate valide seulement
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true      # SQL formaté pour debug (désactiver si logs trop verbeux)
+    show-sql: false           # Mettre true temporairement si besoin de tracer les requêtes
+
+  # ─── Flyway ─────────────────────────────────────────────────────────────────
+  flyway:
+    # ⚠️  STAGING UNIQUEMENT — ne jamais mettre false en production
+    # Autorise "flyway clean" (supprime toutes les tables) pour reset complet.
+    # Protégé par le profil : ce flag n'existe pas dans application-prod.yml.
+    clean-disabled: false
+
+    # Optionnel : rejouer les migrations si une checksum ne correspond plus
+    # (utile en dev/staging après modification d'une migration existante)
+    # repair-on-migration-failure: true   # non standard, voir FlywayMigrationStrategy
+
+# ─── CORS ────────────────────────────────────────────────────────────────────
+app:
+  cors:
+    allowed-origins:
+      # Domaines staging dédiés (à créer sur Cloudflare Pages si besoin)
+      - "https://staging.sopikeur.sn"
+      - "https://admin-staging.sopikeur.sn"
+      # Preview Cloudflare Pages (branches develop)
+      # Remplacer <project> par le nom réel du projet Cloudflare Pages si différent
+      - "https://develop.sopikeur-front.pages.dev"
+      - "https://develop.sopikeur-backoffice.pages.dev"
+      # Local dev (pratique pour tester en staging depuis son poste)
+      - "http://localhost:4200"
+      - "http://localhost:4201"
+
+# ─── Logging ─────────────────────────────────────────────────────────────────
+logging:
+  level:
+    root: INFO
+    sn.sopikeur: DEBUG          # Plus verbeux en staging pour faciliter le debug
+    org.springframework.web: INFO
+    org.hibernate.SQL: INFO     # Passer à DEBUG pour voir toutes les requêtes SQL
+
+# ─── Procédure de RESET staging ──────────────────────────────────────────────
+# Pour repartir d'une DB vierge (toutes les données supprimées, migrations rejouées) :
+#
+#   Option A — via MySQL (recommandé, le plus sûr) :
+#     docker compose exec mysql_staging \
+#       mysql -u root -p"${MYSQL_STAGING_ROOT_PASSWORD}" \
+#       -e "DROP DATABASE IF EXISTS sopikeur_staging;
+#           CREATE DATABASE sopikeur_staging
+#             CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+#     docker compose restart backend_staging
+#     → Flyway détecte la DB vide et rejoue toutes les migrations depuis V1.
+#
+#   Option B — via Flyway clean (clean-disabled: false requis) :
+#     Sur le VPS, dans le container backend_staging, lancer :
+#     java -cp app.jar org.flywaydb.commandline.Main \
+#       -url="${SPRING_DATASOURCE_URL}" -user=... -password=... clean migrate
+#     (ou via un bean FlywayMigrationStrategy dans un Controller admin dédié)
+#
+# ⚠️  N'exposez JAMAIS le endpoint Flyway clean publiquement.
+#     Toujours passer par SSH + docker exec, jamais via un API endpoint HTTP.

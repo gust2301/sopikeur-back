@@ -1,72 +1,131 @@
 {
     email contact@sopikeur.sn
-
-# Optionnel: logs globaux
-# log {
-#   output stdout
-#   format console
-# }
 }
 
+# ==============================================================================
+# api.sopikeur.sn — Production (inchangé)
+# ==============================================================================
 api.sopikeur.sn {
 
     encode gzip
 
     log {
-            output stdout
-            format console
-        }
+        output stdout
+        format console
+    }
 
-# Ne pas indexer l'API
     header {
-               Referrer-Policy "strict-origin-when-cross-origin"
-               Permissions-Policy "geolocation=(), microphone=(), camera=()"
-               Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        Referrer-Policy           "strict-origin-when-cross-origin"
+        Permissions-Policy        "geolocation=(), microphone=(), camera=()"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Robots-Tag              "noindex, nofollow"
+    }
 
-           # IMPORTANT pour Google
-               X-Robots-Tag "noindex, nofollow"
-           }
-
-# robots.txt spécifique à l’API (bloque le crawl)
+    # robots.txt — bloque le crawl de l'API
     @robots path /robots.txt
     handle @robots {
         header Content-Type "text/plain; charset=utf-8"
         respond "User-agent: *\nDisallow: /\n" 200
     }
 
-# (Optionnel) racine / : répondre un 200 minimal noindex
+    # Racine — réponse minimale noindex
     @root path /
     handle @root {
         header Content-Type "text/html; charset=utf-8"
-        respond "<!doctype html><meta name=’robots’ content=’noindex,nofollow’><title>API</title>" 200
+        respond "<!doctype html><meta name='robots' content='noindex,nofollow'><title>API</title>" 200
     }
 
-# --- Actuator : n'autoriser que health/info ---
+    # Actuator — uniquement health et info exposés publiquement
     @actuatorAllowed path /actuator/health /actuator/health/* /actuator/info
     handle @actuatorAllowed {
-                                reverse_proxy backend:8080 {
-                                                               transport http {
-                                                                                  dial_timeout 5s
-                                                                                  read_timeout 30s
-                                                                                  write_timeout 30s
-                                                                              }
-                                                           }
-                            }
+        reverse_proxy backend:8080 {
+            transport http {
+                dial_timeout  5s
+                read_timeout  30s
+                write_timeout 30s
+            }
+        }
+    }
 
     @actuator path /actuator*
     handle @actuator {
-                         respond 403
-                     }
+        respond 403
+    }
 
-# --- Routes normales ---
+    # Routes normales
     handle {
-               reverse_proxy backend:8080 {
-                                              transport http {
-                                                                 dial_timeout 5s
-                                                                 read_timeout 30s
-                                                                 write_timeout 30s
-                                                             }
+        reverse_proxy backend:8080 {
+            transport http {
+                dial_timeout  5s
+                read_timeout  30s
+                write_timeout 30s
+            }
+        }
+    }
+}
 
-                                          }
-           }
+# ==============================================================================
+# api-staging.sopikeur.sn — Staging
+# ==============================================================================
+api-staging.sopikeur.sn {
+
+    encode gzip
+
+    log {
+        output stdout
+        format console
+        # level DEBUG   # Décommenter pour tracer toutes les requêtes Caddy
+    }
+
+    header {
+        Referrer-Policy           "strict-origin-when-cross-origin"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Robots-Tag              "noindex, nofollow"
+        X-Environment             "staging"
+    }
+
+    # robots.txt — bloque le crawl
+    @robots path /robots.txt
+    handle @robots {
+        header Content-Type "text/plain; charset=utf-8"
+        respond "User-agent: *\nDisallow: /\n" 200
+    }
+
+    # ── [OPTIONNEL] Basic Auth globale sur staging ──────────────────────────
+    # Décommenter pour protéger l'intégralité de l'API staging par mot de passe.
+    # Générer le hash avec : caddy hash-password --plaintext "motdepasse"
+    # Puis relancer : docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+    #
+    # basicauth /* {
+    #     sopikeur $2a$14$XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    # }
+    # ── Fin Basic Auth ────────────────────────────────────────────────────────
+
+    # Actuator — health et info exposés (utile pour CI/CD et monitoring)
+    @actuatorAllowed path /actuator/health /actuator/health/* /actuator/info
+    handle @actuatorAllowed {
+        reverse_proxy backend_staging:8080 {
+            transport http {
+                dial_timeout  5s
+                read_timeout  60s
+                write_timeout 60s
+            }
+        }
+    }
+
+    @actuator path /actuator*
+    handle @actuator {
+        respond 403
+    }
+
+    # Routes normales → backend_staging
+    handle {
+        reverse_proxy backend_staging:8080 {
+            transport http {
+                dial_timeout  5s
+                read_timeout  60s
+                write_timeout 60s
+            }
+        }
+    }
 }
