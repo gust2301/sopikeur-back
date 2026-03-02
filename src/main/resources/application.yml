@@ -42,6 +42,19 @@ app:
     cancel-url: ${STRIPE_CANCEL_URL:}
     currency: ${STRIPE_CURRENCY:xof}
     webhook-tolerance-seconds: ${STRIPE_WEBHOOK_TOLERANCE_SECONDS:300}
+  wave:
+    api-key: ${WAVE_API_KEY:placeholder}
+    webhook-secret: ${WAVE_WEBHOOK_SECRET:placeholder}
+    success-url: ${WAVE_SUCCESS_URL:${STRIPE_SUCCESS_URL:}}
+    cancel-url: ${WAVE_CANCEL_URL:${STRIPE_CANCEL_URL:}}
+  orange-money:
+    client-id: ${OM_CLIENT_ID:placeholder}
+    client-secret: ${OM_CLIENT_SECRET:placeholder}
+    merchant-key: ${OM_MERCHANT_KEY:placeholder}
+    country: ${OM_COUNTRY:SN}
+    return-url: ${OM_RETURN_URL:${STRIPE_SUCCESS_URL:}}
+    cancel-url: ${OM_CANCEL_URL:${STRIPE_CANCEL_URL:}}
+    notif-url: ${OM_NOTIF_URL:}
 
 management:
   endpoints:

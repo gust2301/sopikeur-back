@@ -9,6 +9,8 @@ import java.time.OffsetDateTime;
 @Builder
 public class PaymentStatusResponse {
     private String id;
+    /** Provider de paiement : STRIPE | WAVE | ORANGE_MONEY */
+    private String provider;
     private String stripeSessionId;
     private String stripePaymentIntentId;
     private String status;

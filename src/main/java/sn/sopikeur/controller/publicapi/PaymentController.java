@@ -28,6 +28,7 @@ public class PaymentController {
 
         PaymentStatusResponse response = PaymentStatusResponse.builder()
             .id(pi.getPublicId())
+            .provider(pi.getProvider())
             .stripeSessionId(pi.getStripeSessionId())
             .stripePaymentIntentId(pi.getStripePaymentIntentId())
             .status(pi.getStatus().name())

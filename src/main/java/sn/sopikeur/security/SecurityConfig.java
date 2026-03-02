@@ -41,6 +41,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/admin/**").authenticated()
                 .requestMatchers("/api/v1/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/webhooks/stripe").permitAll()
+                .requestMatchers(HttpMethod.POST, "/webhooks/wave").permitAll()
+                .requestMatchers(HttpMethod.POST, "/webhooks/orange-money").permitAll()
                 .anyRequest().denyAll()
             );
         return http.build();

@@ -86,6 +86,8 @@ public class OrderAdminResponseDto {
     @Data @Builder
     public static class PaymentIntentDto {
         private String        publicId;
+        /** Provider de paiement : STRIPE | WAVE | ORANGE_MONEY */
+        private String        provider;
         private Long          amount;
         private String        currency;
         private String        purpose;

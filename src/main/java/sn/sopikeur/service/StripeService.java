@@ -96,7 +96,10 @@ public class StripeService {
 
             PaymentIntentEntity pi = new PaymentIntentEntity();
             pi.setPublicId(UUID.randomUUID().toString());
+            pi.setProvider("STRIPE");
             pi.setStripeSessionId(session.getId());
+            pi.setProviderCheckoutId(session.getId());
+            pi.setProviderPaymentRef(session.getPaymentIntent());
             pi.setOrder(order);
             pi.setAmount(request.getAmountXof());
             pi.setCurrency(cfg.getCurrency());
@@ -292,7 +295,9 @@ public class StripeService {
         paymentIntentRepository.findByStripeSessionId(sessionId).ifPresent(pi -> {
             PaymentEventEntity rec = new PaymentEventEntity();
             rec.setPaymentIntent(pi);
+            rec.setProvider("STRIPE");
             rec.setStripeEventId(event.getId());
+            rec.setProviderEventId(event.getId());
             rec.setEventType(event.getType());
             rec.setPayload(rawPayload);
             rec.setProcessedAt(OffsetDateTime.now());

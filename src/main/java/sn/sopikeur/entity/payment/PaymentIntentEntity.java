@@ -18,14 +18,32 @@ public class PaymentIntentEntity extends Auditable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Provider de paiement : STRIPE | WAVE | ORANGE_MONEY */
+    @Column(name = "provider", nullable = false, length = 32)
+    private String provider = "STRIPE";
+
     @Column(name = "public_id", nullable = false, unique = true, length = 64)
     private String publicId;
 
-    @Column(name = "stripe_session_id", nullable = false, unique = true)
+    /** Nullable : uniquement renseigné pour Stripe */
+    @Column(name = "stripe_session_id", unique = true)
     private String stripeSessionId;
 
     @Column(name = "stripe_payment_intent_id")
     private String stripePaymentIntentId;
+
+    /**
+     * Identifiant de session côté provider (Wave checkout_id, OM payToken, Stripe session.id).
+     * Utilisé pour retrouver le PaymentIntent via webhook.
+     */
+    @Column(name = "provider_checkout_id")
+    private String providerCheckoutId;
+
+    /**
+     * Référence complémentaire provider (Wave transaction_id, OM mpesa_ref, Stripe paymentIntentId).
+     */
+    @Column(name = "provider_payment_ref")
+    private String providerPaymentRef;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id")

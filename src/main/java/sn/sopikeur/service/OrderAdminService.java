@@ -113,6 +113,7 @@ public class OrderAdminService {
         List<OrderAdminResponseDto.PaymentIntentDto> payments = paymentIntents.stream()
             .map(p -> OrderAdminResponseDto.PaymentIntentDto.builder()
                 .publicId(p.getPublicId())
+                .provider(p.getProvider() != null ? p.getProvider() : "STRIPE")
                 .amount(p.getAmount())
                 .currency(p.getCurrency())
                 .purpose(p.getPurpose() != null ? p.getPurpose().name() : null)

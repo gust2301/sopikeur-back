@@ -12,6 +12,8 @@ public class AppProperties {
     private Antispam antispam = new Antispam();
     private Turnstile turnstile = new Turnstile();
     private Stripe stripe = new Stripe();
+    private Wave wave = new Wave();
+    private OrangeMoney orangeMoney = new OrangeMoney();
 
     @Data
     public static class Jwt {
@@ -53,5 +55,24 @@ public class AppProperties {
         private String cancelUrl;
         private String currency = "xof";
         private long webhookToleranceSeconds = 300;
+    }
+
+    @Data
+    public static class Wave {
+        private String apiKey        = "placeholder";
+        private String webhookSecret = "placeholder";
+        private String successUrl;
+        private String cancelUrl;
+    }
+
+    @Data
+    public static class OrangeMoney {
+        private String clientId     = "placeholder";
+        private String clientSecret = "placeholder";
+        private String merchantKey  = "placeholder";
+        private String country      = "SN";
+        private String returnUrl;
+        private String cancelUrl;
+        private String notifUrl;
     }
 }

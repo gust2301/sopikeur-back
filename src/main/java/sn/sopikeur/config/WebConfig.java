@@ -2,7 +2,9 @@ package sn.sopikeur.config;
 
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -21,5 +23,11 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*");
         }
+    }
+
+    /** RestTemplate partagé pour les appels HTTP vers Wave et Orange Money. */
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
     }
 }
