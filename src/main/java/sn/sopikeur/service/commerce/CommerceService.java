@@ -153,11 +153,16 @@ public class CommerceService {
         String methodSelected = request.getPaymentMethodSelected() != null
             ? request.getPaymentMethodSelected() : "STRIPE";
 
+        // Plans Stripe : commande en attente de paiement, invisible en backoffice.
+        // Le webhook checkout.session.completed la passera en SUBMITTED.
+        boolean isDraft = (plan == OrderPaymentPlan.DEPOSIT_50 || plan == OrderPaymentPlan.FULL_ONLINE);
+        OrderStatus initialStatus = isDraft ? OrderStatus.DRAFT_PENDING_PAYMENT : OrderStatus.SUBMITTED;
+
         OrderEntity order = new OrderEntity();
         order.setPublicId(UUID.randomUUID().toString());
         order.setOrderNumber(generateOrderNumber());
-        order.setLegacyStatus("SUBMITTED");
-        order.setOrderStatus(OrderStatus.SUBMITTED);
+        order.setLegacyStatus(initialStatus.name());
+        order.setOrderStatus(initialStatus);
         order.setPaymentStatus(PaymentStatus.UNPAID);
         order.setPaymentPlan(plan);
         order.setPaymentMethodSelected(methodSelected);
@@ -206,7 +211,11 @@ public class CommerceService {
         saved.setDepositAmount(depositAmount);
         orderRepository.save(saved);
 
-        notificationService.notifyOrderCreated(saved);
+        // Notifier uniquement pour les commandes directes (CASH_ON_DELIVERY).
+        // Pour les drafts Stripe, la notification est envoyée par le webhook au succès du paiement.
+        if (!isDraft) {
+            notificationService.notifyOrderCreated(saved);
+        }
         return CommerceCreateResponse.builder()
             .id(saved.getPublicId())
             .orderNumber(saved.getOrderNumber())

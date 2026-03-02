@@ -16,10 +16,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import sn.sopikeur.common.error.NotFoundException;
 import sn.sopikeur.config.AppProperties;
+import sn.sopikeur.service.NotificationService;
 import sn.sopikeur.dto.request.publicapi.stripe.StripeCheckoutRequest;
 import sn.sopikeur.dto.response.publicapi.stripe.StripeCheckoutResponse;
 import sn.sopikeur.entity.order.OrderEntity;
 import sn.sopikeur.entity.order.OrderPaymentPlan;
+import sn.sopikeur.entity.order.OrderStatus;
 import sn.sopikeur.entity.payment.PaymentEventEntity;
 import sn.sopikeur.entity.payment.PaymentIntentEntity;
 import sn.sopikeur.entity.payment.PaymentIntentStatus;
@@ -45,6 +47,7 @@ public class StripeService {
     private final PaymentIntentRepository paymentIntentRepository;
     private final PaymentEventRepository paymentEventRepository;
     private final OrderRepository orderRepository;
+    private final NotificationService notificationService;
 
     @PostConstruct
     public void init() {
@@ -232,14 +235,30 @@ public class StripeService {
                             order.setPaymentStatus(PaymentStatus.PARTIALLY_PAID);
                         }
 
-                        // Keep legacy status in sync
-                        if (order.getOrderStatus() != null) {
+                        // Promouvoir les drafts en commandes réelles après paiement confirmé
+                        if (order.getOrderStatus() == OrderStatus.DRAFT_PENDING_PAYMENT) {
+                            order.setOrderStatus(OrderStatus.SUBMITTED);
+                            order.setLegacyStatus("SUBMITTED");
+                            log.info("Draft order {} promoted to SUBMITTED after Stripe payment", order.getPublicId());
+                        } else if (order.getOrderStatus() != null) {
+                            // Keep legacy status in sync for non-draft orders
                             order.setLegacyStatus(order.getOrderStatus().name());
                         }
 
                         orderRepository.save(order);
                         log.info("Order {} payment updated: amountPaid={} amountDue={} paymentStatus={}",
                             order.getPublicId(), newAmountPaid, newAmountDue, order.getPaymentStatus());
+
+                        // Notifier l'admin pour les commandes promues depuis DRAFT
+                        if (OrderStatus.SUBMITTED.equals(order.getOrderStatus())
+                                && pi.getPurpose() != null) {
+                            try {
+                                notificationService.notifyOrderCreated(order);
+                            } catch (Exception e) {
+                                log.warn("Impossible d'envoyer la notification pour la commande {}: {}",
+                                    order.getPublicId(), e.getMessage());
+                            }
+                        }
                     }
                 });
             }
@@ -250,6 +269,16 @@ public class StripeService {
                     pi.setStatus(PaymentIntentStatus.EXPIRED);
                     paymentIntentRepository.save(pi);
                     log.info("PaymentIntent {} expired (stripeSession={})", pi.getPublicId(), session.getId());
+
+                    // Annuler les commandes draft qui attendaient ce paiement
+                    if (pi.getOrder() != null
+                            && pi.getOrder().getOrderStatus() == OrderStatus.DRAFT_PENDING_PAYMENT) {
+                        OrderEntity order = pi.getOrder();
+                        order.setOrderStatus(OrderStatus.CANCELED);
+                        order.setLegacyStatus("CANCELED");
+                        orderRepository.save(order);
+                        log.info("Draft order {} canceled (Stripe session expired)", order.getPublicId());
+                    }
                 });
             }
             default -> log.debug("Unhandled Stripe event type: {}", event.getType());

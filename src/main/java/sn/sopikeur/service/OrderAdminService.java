@@ -37,12 +37,17 @@ public class OrderAdminService {
         if (statusParam != null && !statusParam.isBlank()) {
             try {
                 OrderStatus status = OrderStatus.valueOf(statusParam.toUpperCase());
-                result = orderRepository.findByOrderStatus(status, pageable);
+                // Ne jamais exposer les drafts en backoffice, même si explicitement demandé
+                if (status == OrderStatus.DRAFT_PENDING_PAYMENT) {
+                    result = Page.empty(pageable);
+                } else {
+                    result = orderRepository.findByOrderStatus(status, pageable);
+                }
             } catch (IllegalArgumentException e) {
-                result = orderRepository.findAll(pageable);
+                result = orderRepository.findByOrderStatusNot(OrderStatus.DRAFT_PENDING_PAYMENT, pageable);
             }
         } else {
-            result = orderRepository.findAll(pageable);
+            result = orderRepository.findByOrderStatusNot(OrderStatus.DRAFT_PENDING_PAYMENT, pageable);
         }
 
         return PageResponse.<OrderAdminResponseDto>builder()
