@@ -57,6 +57,8 @@ public class ProductService {
     @Transactional(readOnly = true)
     public ProductDetailResponse getProduct(String slug) {
         Product product = productRepository.findBySlug(slug)
+            .filter(p -> p.getStatus() != null && p.getStatus().name().equals("ACTIVE"))
+            .filter(p -> p.getType() == null || !p.getType().name().equals("ACCESSORY"))
             .orElseThrow(() -> new NotFoundException("Produit introuvable"));
         return productMapper.toDetail(product, resolveStockStatus(product.getId()));
     }

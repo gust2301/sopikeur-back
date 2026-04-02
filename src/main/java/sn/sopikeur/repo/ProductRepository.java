@@ -20,7 +20,9 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
             SELECT DISTINCT p
             FROM Product p
             LEFT JOIN StockItem s ON s.product = p
-            WHERE (:type IS NULL OR p.type = :type)
+            WHERE p.status = 'ACTIVE'
+              AND p.type <> 'ACCESSORY'
+              AND (:type IS NULL OR p.type = :type)
               AND (:featured IS NULL OR p.featured = :featured)
               AND (
                 :q IS NULL
@@ -38,7 +40,9 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
             SELECT COUNT(DISTINCT p)
             FROM Product p
             LEFT JOIN StockItem s ON s.product = p
-            WHERE (:type IS NULL OR p.type = :type)
+            WHERE p.status = 'ACTIVE'
+              AND p.type <> 'ACCESSORY'
+              AND (:type IS NULL OR p.type = :type)
               AND (:featured IS NULL OR p.featured = :featured)
               AND (
                 :q IS NULL
