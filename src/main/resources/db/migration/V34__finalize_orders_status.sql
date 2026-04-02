@@ -38,6 +38,10 @@ PREPARE stmt_backfill_status FROM @backfill_status_sql;
 EXECUTE stmt_backfill_status;
 DEALLOCATE PREPARE stmt_backfill_status;
 
+UPDATE orders SET status = 'PENDING_CONFIRMATION' WHERE UPPER(status) = 'SUBMITTED';
+UPDATE orders SET status = 'CANCELLED' WHERE UPPER(status) = 'CANCELED';
+UPDATE orders SET status = 'FULFILLED' WHERE UPPER(status) = 'DELIVERED';
+
 SET @has_idx_orders_order_status_created_at = (
     SELECT COUNT(*)
     FROM information_schema.STATISTICS

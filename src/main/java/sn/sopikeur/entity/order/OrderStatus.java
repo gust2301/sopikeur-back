@@ -4,5 +4,18 @@ public enum OrderStatus {
     PENDING_CONFIRMATION,
     CONFIRMED,
     CANCELLED,
-    FULFILLED
+    FULFILLED;
+
+    public static OrderStatus fromValue(String value) {
+        if (value == null || value.isBlank()) {
+            return PENDING_CONFIRMATION;
+        }
+
+        return switch (value.trim().toUpperCase()) {
+            case "SUBMITTED" -> PENDING_CONFIRMATION;
+            case "CANCELED" -> CANCELLED;
+            case "DELIVERED" -> FULFILLED;
+            default -> OrderStatus.valueOf(value.trim().toUpperCase());
+        };
+    }
 }

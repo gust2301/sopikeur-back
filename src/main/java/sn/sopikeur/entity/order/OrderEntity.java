@@ -25,7 +25,7 @@ public class OrderEntity extends Auditable {
     @Column(name = "order_number")
     private String orderNumber;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = OrderStatusConverter.class)
     @Column(name = "status", nullable = false)
     private OrderStatus status;
 

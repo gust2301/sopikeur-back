@@ -38,7 +38,7 @@ public class OrderAdminService {
         Page<OrderEntity> result;
         if (statusParam != null && !statusParam.isBlank()) {
             try {
-                OrderStatus status = OrderStatus.valueOf(statusParam.toUpperCase());
+                OrderStatus status = OrderStatus.fromValue(statusParam);
                 result = orderRepository.findByStatus(status, pageable);
             } catch (IllegalArgumentException e) {
                 result = orderRepository.findAll(pageable);
@@ -90,7 +90,7 @@ public class OrderAdminService {
     public OrderAdminResponseDto updateStatus(Long id, String statusParam) {
         OrderEntity order = orderRepository.findById(id)
             .orElseThrow(() -> new NotFoundException("Commande introuvable"));
-        order.setStatus(OrderStatus.valueOf(statusParam.toUpperCase()));
+        order.setStatus(OrderStatus.fromValue(statusParam));
         return toDto(orderRepository.save(order));
     }
 
