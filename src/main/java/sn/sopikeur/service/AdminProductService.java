@@ -49,7 +49,11 @@ public class AdminProductService {
 
         Specification<Product> spec = Specification.where(null);
         if (type != null) spec = spec.and((r, qy, cb) -> cb.equal(r.get("type"), type));
-        if (status != null) spec = spec.and((r, qy, cb) -> cb.equal(r.get("status"), status));
+        if (status != null) {
+            spec = spec.and((r, qy, cb) -> cb.equal(r.get("status"), status));
+        } else {
+            spec = spec.and((r, qy, cb) -> cb.notEqual(r.get("status"), ProductStatus.ARCHIVED));
+        }
         if (featured != null) spec = spec.and((r, qy, cb) -> cb.equal(r.get("featured"), featured));
         if (q != null && !q.isBlank()) {
             String like = "%" + q.trim().toLowerCase() + "%";
