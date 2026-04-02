@@ -1,9 +1,12 @@
 package sn.sopikeur.controller.admin;
 
+import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import sn.sopikeur.dto.request.admin.AddOrderItemRequest;
 import sn.sopikeur.common.pagination.PageResponse;
 import sn.sopikeur.dto.response.admin.OrderAdminResponseDto;
 import sn.sopikeur.service.OrderAdminService;
@@ -29,6 +32,16 @@ public class OrderAdminController {
         @RequestParam(required = false) String status
     ) {
         return orderAdminService.list(page, size, status);
+    }
+
+    @PostMapping("/{id}/items")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    public OrderAdminResponseDto addItem(
+        @PathVariable Long id,
+        @Valid @RequestBody AddOrderItemRequest body
+    ) {
+        return orderAdminService.addItem(id, body);
     }
 
     @PatchMapping("/{id}")

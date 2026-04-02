@@ -11,10 +11,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sn.sopikeur.common.error.NotFoundException;
 import sn.sopikeur.common.pagination.PageResponse;
+import sn.sopikeur.dto.request.admin.AddOrderItemRequest;
 import sn.sopikeur.dto.response.admin.OrderAdminResponseDto;
+import sn.sopikeur.entity.catalog.Product;
 import sn.sopikeur.entity.order.OrderEntity;
 import sn.sopikeur.entity.order.OrderItem;
 import sn.sopikeur.entity.order.OrderStatus;
+import sn.sopikeur.repo.ProductRepository;
+import sn.sopikeur.repo.order.OrderItemRepository;
 import sn.sopikeur.repo.order.OrderRepository;
 
 @Service
@@ -22,6 +26,8 @@ import sn.sopikeur.repo.order.OrderRepository;
 public class OrderAdminService {
 
     private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final ProductRepository productRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<OrderAdminResponseDto> list(int page, int size, String statusParam) {
@@ -55,6 +61,29 @@ public class OrderAdminService {
         OrderEntity order = orderRepository.findById(id)
             .orElseThrow(() -> new NotFoundException("Commande introuvable"));
         return toDto(order);
+    }
+
+    @Transactional
+    public OrderAdminResponseDto addItem(Long orderId, AddOrderItemRequest request) {
+        OrderEntity order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new NotFoundException("Commande introuvable"));
+        Product product = productRepository.findById(request.getProductId())
+            .orElseThrow(() -> new NotFoundException("Produit introuvable"));
+
+        BigDecimal unitPrice = product.getPrice();
+        BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(request.getQuantity()));
+
+        OrderItem item = new OrderItem();
+        item.setOrder(order);
+        item.setProduct(product);
+        item.setSkuSnapshot(product.getSku() != null ? product.getSku() : product.getSlug());
+        item.setUnit(product.getUnit() != null ? product.getUnit() : "pièce");
+        item.setQty(request.getQuantity());
+        item.setUnitPriceSnapshot(unitPrice);
+        item.setLineTotalSnapshot(lineTotal);
+        orderItemRepository.save(item);
+
+        return getById(orderId);
     }
 
     @Transactional
