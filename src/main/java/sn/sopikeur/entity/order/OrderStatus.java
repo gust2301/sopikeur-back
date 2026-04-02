@@ -13,6 +13,7 @@ public enum OrderStatus {
 
         return switch (value.trim().toUpperCase()) {
             case "SUBMITTED" -> PENDING_CONFIRMATION;
+            case "DRAFT_PENDING_PAYMENT" -> PENDING_CONFIRMATION;
             case "CANCELED" -> CANCELLED;
             case "DELIVERED" -> FULFILLED;
             default -> OrderStatus.valueOf(value.trim().toUpperCase());

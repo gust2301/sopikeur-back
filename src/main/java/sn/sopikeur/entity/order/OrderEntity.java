@@ -50,6 +50,27 @@ public class OrderEntity extends Auditable {
     @Column(name = "delivery_json", columnDefinition = "json")
     private String deliveryJson;
 
+    @Column(name = "payment_status")
+    private String paymentStatus;
+
+    @Column(name = "payment_plan")
+    private String paymentPlan;
+
+    @Column(name = "payment_method_sel")
+    private String paymentMethodSelected;
+
+    @Column(name = "amount_total")
+    private java.math.BigDecimal amountTotal;
+
+    @Column(name = "amount_paid")
+    private java.math.BigDecimal amountPaid;
+
+    @Column(name = "amount_due")
+    private java.math.BigDecimal amountDue;
+
+    @Column(name = "deposit_amount")
+    private java.math.BigDecimal depositAmount;
+
     @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
     private List<OrderItem> items = new ArrayList<>();
 }

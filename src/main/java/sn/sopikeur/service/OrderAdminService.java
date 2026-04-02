@@ -101,6 +101,8 @@ public class OrderAdminService {
             .map(OrderItem::getLineTotalSnapshot)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        BigDecimal apiTotalAmount = o.getAmountTotal() != null ? o.getAmountTotal() : totalAmount;
+
         List<OrderAdminResponseDto.ItemDto> items = rawItems.stream()
             .map(i -> OrderAdminResponseDto.ItemDto.builder()
                 .productId(i.getProduct().getId())
@@ -143,9 +145,18 @@ public class OrderAdminService {
             .items(items)
             // montants (nested + plat)
             .amounts(OrderAdminResponseDto.AmountsDto.builder()
-                .totalAmount(totalAmount)
+                .totalAmount(apiTotalAmount)
+                .amountPaid(o.getAmountPaid())
+                .amountDue(o.getAmountDue())
+                .depositAmount(o.getDepositAmount())
                 .build())
-            .totalAmount(totalAmount)
+            .totalAmount(apiTotalAmount)
+            .amountPaid(o.getAmountPaid())
+            .amountDue(o.getAmountDue())
+            .depositAmount(o.getDepositAmount())
+            .paymentStatus(o.getPaymentStatus())
+            .paymentPlan(o.getPaymentPlan())
+            .paymentMethodSelected(o.getPaymentMethodSelected())
             // dates (nested + plat)
             .timestamps(OrderAdminResponseDto.TimestampsDto.builder()
                 .createdAt(o.getCreatedAt())

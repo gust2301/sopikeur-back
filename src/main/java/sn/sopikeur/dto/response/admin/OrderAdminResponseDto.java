@@ -28,6 +28,12 @@ public class OrderAdminResponseDto {
     private String     customerEmail;
     private String     customerPhone;
     private BigDecimal totalAmount;
+    private BigDecimal amountPaid;
+    private BigDecimal amountDue;
+    private BigDecimal depositAmount;
+    private String     paymentStatus;
+    private String     paymentPlan;
+    private String     paymentMethodSelected;
     private String     createdAt;
 
     // ── Nested DTOs ──────────────────────────────────────────────────────────
@@ -62,6 +68,9 @@ public class OrderAdminResponseDto {
     @Data @Builder
     public static class AmountsDto {
         private BigDecimal totalAmount;
+        private BigDecimal amountPaid;
+        private BigDecimal amountDue;
+        private BigDecimal depositAmount;
     }
 
     @Data @Builder

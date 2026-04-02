@@ -39,6 +39,7 @@ EXECUTE stmt_backfill_status;
 DEALLOCATE PREPARE stmt_backfill_status;
 
 UPDATE orders SET status = 'PENDING_CONFIRMATION' WHERE UPPER(status) = 'SUBMITTED';
+UPDATE orders SET status = 'PENDING_CONFIRMATION' WHERE UPPER(status) = 'DRAFT_PENDING_PAYMENT';
 UPDATE orders SET status = 'CANCELLED' WHERE UPPER(status) = 'CANCELED';
 UPDATE orders SET status = 'FULFILLED' WHERE UPPER(status) = 'DELIVERED';
 
