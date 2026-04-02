@@ -25,7 +25,7 @@ public class OrderEntity extends Auditable {
     private String orderNumber;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @Column(name = "order_status", nullable = false)
     private OrderStatus status;
 
     @Column(name = "full_name")
