@@ -19,6 +19,7 @@ public class OrderTrackingResponseDto {
     private String customerName;
     private String phone;
     private DeliveryDto delivery;
+    private InstallationDto installation;
     private boolean installationRequested;
     private LocalDate installationDate;
     private String installationDateText;
@@ -33,7 +34,17 @@ public class OrderTrackingResponseDto {
         private String city;
         private String zone;
         private String cityZone;
+        private LocalDate expectedDate;
         private LocalDate expectedDeliveryDate;
+        private String note;
+    }
+
+    @Data
+    @Builder
+    public static class InstallationDto {
+        private boolean requested;
+        private LocalDate date;
+        private String note;
     }
 
     @Data

@@ -54,6 +54,12 @@ public class OrderEntity extends Auditable {
     @Column(name = "expected_delivery_date")
     private LocalDate expectedDeliveryDate;
 
+    @Column(name = "delivery_note")
+    private String deliveryNote;
+
+    @Column(name = "installation_requested")
+    private Boolean installationRequested;
+
     @Column(name = "installation_date")
     private LocalDate installationDate;
 

@@ -65,7 +65,9 @@ class OrderTrackingPublicIT extends BaseMySqlIT {
 
         OrderEntity saved = orderRepository.findByPublicId(publicId).orElseThrow();
         saved.setExpectedDeliveryDate(LocalDate.of(2026, 4, 10));
-        saved.setInstallationNote("À confirmer");
+        saved.setDeliveryNote("Livraison en coordination avec le client");
+        saved.setInstallationRequested(true);
+        saved.setInstallationNote("A confirmer");
         orderRepository.save(saved);
 
         mockMvc.perform(get("/api/v1/public/orders/{publicId}", publicId))
@@ -77,14 +79,18 @@ class OrderTrackingPublicIT extends BaseMySqlIT {
             .andExpect(jsonPath("$.phone").value("+2*********67"))
             .andExpect(jsonPath("$.delivery.city").value("Dakar"))
             .andExpect(jsonPath("$.delivery.zone").value("Almadies"))
+            .andExpect(jsonPath("$.delivery.expectedDate").value("2026-04-10"))
             .andExpect(jsonPath("$.delivery.expectedDeliveryDate").value("2026-04-10"))
+            .andExpect(jsonPath("$.delivery.note").value("Livraison en coordination avec le client"))
+            .andExpect(jsonPath("$.installation.requested").value(true))
+            .andExpect(jsonPath("$.installation.note").value("A confirmer"))
             .andExpect(jsonPath("$.installationRequested").value(true))
-            .andExpect(jsonPath("$.installationDateText").value("À confirmer"))
+            .andExpect(jsonPath("$.installationDateText").value("A confirmer"))
             .andExpect(jsonPath("$.items[0].sku").value("SPC006"))
             .andExpect(jsonPath("$.totals.total").isNumber())
             .andExpect(jsonPath("$.email").doesNotExist())
             .andExpect(jsonPath("$.customerEmail").doesNotExist())
-            .andExpect(jsonPath("$.timeline[0].label").value("Commande reçue"));
+            .andExpect(jsonPath("$.timeline[0].label").value("Commande recue"));
 
         String response = mockMvc.perform(get("/api/v1/public/orders/{publicId}", publicId))
             .andReturn()
