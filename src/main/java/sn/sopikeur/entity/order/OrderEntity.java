@@ -50,11 +50,13 @@ public class OrderEntity extends Auditable {
     @Column(name = "delivery_json", columnDefinition = "json")
     private String deliveryJson;
 
+    @Convert(converter = PaymentStatusConverter.class)
     @Column(name = "payment_status")
-    private String paymentStatus;
+    private PaymentStatus paymentStatus;
 
+    @Convert(converter = PaymentPlanConverter.class)
     @Column(name = "payment_plan")
-    private String paymentPlan;
+    private PaymentPlan paymentPlan;
 
     @Column(name = "payment_method_sel")
     private String paymentMethodSelected;

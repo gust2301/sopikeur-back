@@ -52,4 +52,14 @@ public class OrderAdminController {
     ) {
         return orderAdminService.updateStatus(id, body.get("status"));
     }
+
+    @PatchMapping("/{id}/payment")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    public OrderAdminResponseDto recordPayment(
+        @PathVariable Long id,
+        @RequestBody Map<String, Object> body
+    ) {
+        java.math.BigDecimal amountPaid = new java.math.BigDecimal(body.get("amountPaid").toString());
+        return orderAdminService.recordPayment(id, amountPaid);
+    }
 }

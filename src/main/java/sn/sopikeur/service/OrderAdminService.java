@@ -17,6 +17,7 @@ import sn.sopikeur.entity.catalog.Product;
 import sn.sopikeur.entity.order.OrderEntity;
 import sn.sopikeur.entity.order.OrderItem;
 import sn.sopikeur.entity.order.OrderStatus;
+import sn.sopikeur.entity.order.PaymentStatus;
 import sn.sopikeur.repo.ProductRepository;
 import sn.sopikeur.repo.order.OrderItemRepository;
 import sn.sopikeur.repo.order.OrderRepository;
@@ -94,6 +95,32 @@ public class OrderAdminService {
         return toDto(orderRepository.save(order));
     }
 
+    @Transactional
+    public OrderAdminResponseDto recordPayment(Long id, java.math.BigDecimal amountPaid) {
+        OrderEntity order = orderRepository.findById(id)
+            .orElseThrow(() -> new NotFoundException("Commande introuvable"));
+
+        java.math.BigDecimal total = order.getAmountTotal();
+        if (total == null) {
+            total = order.getItems().stream()
+                .map(OrderItem::getLineTotalSnapshot)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        }
+
+        order.setAmountPaid(amountPaid);
+        order.setAmountDue(total.subtract(amountPaid).max(java.math.BigDecimal.ZERO));
+
+        if (amountPaid.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            order.setPaymentStatus(PaymentStatus.UNPAID);
+        } else if (amountPaid.compareTo(total) >= 0) {
+            order.setPaymentStatus(PaymentStatus.PAID);
+        } else {
+            order.setPaymentStatus(PaymentStatus.PARTIALLY_PAID);
+        }
+
+        return toDto(orderRepository.save(order));
+    }
+
     private OrderAdminResponseDto toDto(OrderEntity o) {
         List<OrderItem> rawItems = o.getItems();
 
@@ -154,8 +181,8 @@ public class OrderAdminService {
             .amountPaid(o.getAmountPaid())
             .amountDue(o.getAmountDue())
             .depositAmount(o.getDepositAmount())
-            .paymentStatus(o.getPaymentStatus())
-            .paymentPlan(o.getPaymentPlan())
+            .paymentStatus(o.getPaymentStatus() != null ? o.getPaymentStatus().name() : null)
+            .paymentPlan(o.getPaymentPlan() != null ? o.getPaymentPlan().name() : null)
             .paymentMethodSelected(o.getPaymentMethodSelected())
             // dates (nested + plat)
             .timestamps(OrderAdminResponseDto.TimestampsDto.builder()
