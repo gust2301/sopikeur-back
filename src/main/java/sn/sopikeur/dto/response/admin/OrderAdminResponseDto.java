@@ -48,8 +48,16 @@ public class OrderAdminResponseDto {
     @Data @Builder
     public static class DeliveryDto {
         private String  cityZone;
+        private String  city;
+        private String  zone;
+        private String  address;
         private boolean needsInstallation;
         private String  note;
+        private java.time.LocalDate expectedDeliveryDate;
+        private String  deliveryNote;
+        private Boolean installationRequested;
+        private java.time.LocalDate installationDate;
+        private String  installationNote;
         /** Contenu brut du champ JSON delivery_json */
         private String  deliveryJson;
     }

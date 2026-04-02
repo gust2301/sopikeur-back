@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import sn.sopikeur.dto.request.admin.AddOrderItemRequest;
+import sn.sopikeur.dto.request.admin.UpdateOrderDetailsRequest;
 import sn.sopikeur.common.pagination.PageResponse;
 import sn.sopikeur.dto.response.admin.OrderAdminResponseDto;
 import sn.sopikeur.service.OrderAdminService;
@@ -51,6 +52,15 @@ public class OrderAdminController {
         @RequestBody Map<String, String> body
     ) {
         return orderAdminService.updateStatus(id, body.get("status"));
+    }
+
+    @PatchMapping("/{id}/details")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    public OrderAdminResponseDto updateDetails(
+        @PathVariable Long id,
+        @RequestBody UpdateOrderDetailsRequest body
+    ) {
+        return orderAdminService.updateDetails(id, body);
     }
 
     @PatchMapping("/{id}/payment")

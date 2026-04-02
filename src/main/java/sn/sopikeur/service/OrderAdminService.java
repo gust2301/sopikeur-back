@@ -1,5 +1,7 @@
 package sn.sopikeur.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import sn.sopikeur.common.error.NotFoundException;
 import sn.sopikeur.common.pagination.PageResponse;
 import sn.sopikeur.dto.request.admin.AddOrderItemRequest;
+import sn.sopikeur.dto.request.admin.UpdateOrderDetailsRequest;
 import sn.sopikeur.dto.response.admin.OrderAdminResponseDto;
 import sn.sopikeur.entity.catalog.Product;
 import sn.sopikeur.entity.order.OrderEntity;
@@ -29,6 +32,7 @@ public class OrderAdminService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final ProductRepository productRepository;
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public PageResponse<OrderAdminResponseDto> list(int page, int size, String statusParam) {
@@ -96,6 +100,31 @@ public class OrderAdminService {
     }
 
     @Transactional
+    public OrderAdminResponseDto updateDetails(Long id, UpdateOrderDetailsRequest request) {
+        OrderEntity order = orderRepository.findById(id)
+            .orElseThrow(() -> new NotFoundException("Commande introuvable"));
+
+        order.setFullName(trimToNull(request.getFullName()));
+        order.setPhone(trimToNull(request.getPhone()));
+        order.setEmail(trimToNull(request.getEmail()));
+        order.setCityZone(resolveCityZone(request));
+        order.setNote(trimToNull(request.getNote()));
+        order.setExpectedDeliveryDate(request.getExpectedDeliveryDate());
+        order.setDeliveryNote(trimToNull(request.getDeliveryNote()));
+
+        if (request.getInstallationRequested() != null) {
+            order.setInstallationRequested(request.getInstallationRequested());
+            order.setNeedsInstallation(request.getInstallationRequested());
+        }
+
+        order.setInstallationDate(request.getInstallationDate());
+        order.setInstallationNote(trimToNull(request.getInstallationNote()));
+        order.setDeliveryJson(buildDeliveryJson(request));
+
+        return toDto(orderRepository.save(order));
+    }
+
+    @Transactional
     public OrderAdminResponseDto recordPayment(Long id, java.math.BigDecimal amountPaid) {
         OrderEntity order = orderRepository.findById(id)
             .orElseThrow(() -> new NotFoundException("Commande introuvable"));
@@ -123,6 +152,7 @@ public class OrderAdminService {
 
     private OrderAdminResponseDto toDto(OrderEntity o) {
         List<OrderItem> rawItems = o.getItems();
+        DeliveryDetails deliveryDetails = parseDeliveryDetails(o.getDeliveryJson());
 
         BigDecimal totalAmount = rawItems.stream()
             .map(OrderItem::getLineTotalSnapshot)
@@ -164,8 +194,16 @@ public class OrderAdminService {
             // livraison
             .delivery(OrderAdminResponseDto.DeliveryDto.builder()
                 .cityZone(o.getCityZone())
+                .city(deliveryDetails.city())
+                .zone(deliveryDetails.zone())
+                .address(deliveryDetails.address())
                 .needsInstallation(o.isNeedsInstallation())
                 .note(o.getNote())
+                .expectedDeliveryDate(o.getExpectedDeliveryDate())
+                .deliveryNote(o.getDeliveryNote())
+                .installationRequested(o.getInstallationRequested())
+                .installationDate(o.getInstallationDate())
+                .installationNote(o.getInstallationNote())
                 .deliveryJson(o.getDeliveryJson())
                 .build())
             // articles
@@ -191,5 +229,68 @@ public class OrderAdminService {
                 .build())
             .createdAt(createdAtStr)
             .build();
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String resolveCityZone(UpdateOrderDetailsRequest request) {
+        String explicitCityZone = trimToNull(request.getCityZone());
+        if (explicitCityZone != null) {
+            return explicitCityZone;
+        }
+
+        String city = trimToNull(request.getDeliveryCity());
+        String zone = trimToNull(request.getDeliveryZone());
+        if (city == null) {
+            return null;
+        }
+        return zone == null ? city : city + " - " + zone;
+    }
+
+    private String buildDeliveryJson(UpdateOrderDetailsRequest request) {
+        DeliveryDetails details = new DeliveryDetails(
+            trimToNull(request.getDeliveryCity()),
+            trimToNull(request.getDeliveryZone()),
+            trimToNull(request.getDeliveryAddress())
+        );
+
+        if (details.city() == null && details.zone() == null && details.address() == null) {
+            return null;
+        }
+
+        try {
+            return objectMapper.writeValueAsString(new DeliveryPayload(details.city(), details.zone(), details.address()));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Impossible de serialiser deliveryJson", e);
+        }
+    }
+
+    private DeliveryDetails parseDeliveryDetails(String deliveryJson) {
+        if (deliveryJson == null || deliveryJson.isBlank()) {
+            return new DeliveryDetails(null, null, null);
+        }
+
+        try {
+            DeliveryPayload payload = objectMapper.readValue(deliveryJson, DeliveryPayload.class);
+            return new DeliveryDetails(
+                trimToNull(payload.city()),
+                trimToNull(payload.area()),
+                trimToNull(payload.address())
+            );
+        } catch (Exception ignored) {
+            return new DeliveryDetails(null, null, null);
+        }
+    }
+
+    private record DeliveryPayload(String city, String area, String address) {
+    }
+
+    private record DeliveryDetails(String city, String zone, String address) {
     }
 }
