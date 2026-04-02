@@ -81,6 +81,16 @@ class AdminAuthAndProductIT extends BaseMySqlIT {
     }
 
     @Test
+    void login_preflight_shouldReturnCorsHeaders() throws Exception {
+        mockMvc.perform(options("/api/v1/admin/auth/login")
+                .header("Origin", "https://develop.sopikeur-backoffice.pages.dev")
+                .header("Access-Control-Request-Method", "POST")
+                .header("Access-Control-Request-Headers", "content-type"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Allow-Origin", "https://develop.sopikeur-backoffice.pages.dev"));
+    }
+
+    @Test
     void productsCrud_andPagination_andStockValidation() throws Exception {
         String token = login();
 

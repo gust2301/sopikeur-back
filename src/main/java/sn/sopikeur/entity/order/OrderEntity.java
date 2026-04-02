@@ -1,12 +1,13 @@
 package sn.sopikeur.entity.order;
 
 import jakarta.persistence.*;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import sn.sopikeur.common.audit.Auditable;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -25,7 +26,7 @@ public class OrderEntity extends Auditable {
     private String orderNumber;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "order_status", nullable = false)
+    @Column(name = "status", nullable = false)
     private OrderStatus status;
 
     @Column(name = "full_name")
