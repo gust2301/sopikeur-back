@@ -2,6 +2,13 @@ app:
   jwt:
     secret: test-test-test-test-test-test-test-test
     expiration-minutes: 60
+  cors:
+    allowed-origins:
+      - "https://develop.sopikeur-backoffice.pages.dev"
+      - "http://localhost:4200"
+      - "http://localhost:4201"
+  tracking:
+    base-url: "http://localhost:4200"
   antispam:
     contact:
       rate-limit:

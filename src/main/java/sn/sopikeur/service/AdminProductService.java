@@ -17,9 +17,11 @@ import sn.sopikeur.entity.catalog.Product;
 import sn.sopikeur.entity.catalog.ProductStatus;
 import sn.sopikeur.entity.catalog.ProductType;
 import sn.sopikeur.entity.media.MediaAsset;
+import sn.sopikeur.entity.stock.StockItem;
 import sn.sopikeur.mapper.AdminProductMapper;
 import sn.sopikeur.repo.MediaAssetRepository;
 import sn.sopikeur.repo.ProductRepository;
+import sn.sopikeur.repo.StockItemRepository;
 
 import java.util.List;
 
@@ -29,6 +31,7 @@ public class AdminProductService {
 
     private final ProductRepository productRepository;
     private final MediaAssetRepository mediaAssetRepository;
+    private final StockItemRepository stockItemRepository;
     private final AdminProductMapper adminProductMapper;
 
     @Transactional(readOnly = true)
@@ -49,7 +52,11 @@ public class AdminProductService {
 
         Specification<Product> spec = Specification.where(null);
         if (type != null) spec = spec.and((r, qy, cb) -> cb.equal(r.get("type"), type));
-        if (status != null) spec = spec.and((r, qy, cb) -> cb.equal(r.get("status"), status));
+        if (status != null) {
+            spec = spec.and((r, qy, cb) -> cb.equal(r.get("status"), status));
+        } else {
+            spec = spec.and((r, qy, cb) -> cb.notEqual(r.get("status"), ProductStatus.ARCHIVED));
+        }
         if (featured != null) spec = spec.and((r, qy, cb) -> cb.equal(r.get("featured"), featured));
         if (q != null && !q.isBlank()) {
             String like = "%" + q.trim().toLowerCase() + "%";
@@ -81,7 +88,14 @@ public class AdminProductService {
     public ProductResponseDto create(ProductUpsertRequestDto dto) {
         Product p = new Product();
         apply(p, dto);
-        return adminProductMapper.toDto(productRepository.save(p));
+        Product saved = productRepository.save(p);
+        StockItem stock = new StockItem();
+        stock.setProduct(saved);
+        stock.setQuantity(0);
+        stock.setReserved(0);
+        stock.setPreorderAllowed(false);
+        stockItemRepository.save(stock);
+        return adminProductMapper.toDto(saved);
     }
 
     @Transactional

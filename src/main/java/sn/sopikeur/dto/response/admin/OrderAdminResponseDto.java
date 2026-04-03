@@ -28,7 +28,14 @@ public class OrderAdminResponseDto {
     private String     customerEmail;
     private String     customerPhone;
     private BigDecimal totalAmount;
+    private BigDecimal amountPaid;
+    private BigDecimal amountDue;
+    private BigDecimal depositAmount;
+    private String     paymentStatus;
+    private String     paymentPlan;
+    private String     paymentMethodSelected;
     private String     createdAt;
+    private String     trackingUrl;
 
     // ── Nested DTOs ──────────────────────────────────────────────────────────
 
@@ -42,8 +49,21 @@ public class OrderAdminResponseDto {
     @Data @Builder
     public static class DeliveryDto {
         private String  cityZone;
+        private String  city;
+        private String  zone;
+        private String  address;
         private boolean needsInstallation;
         private String  note;
+        private java.time.LocalDate expectedDeliveryDate;
+        private java.time.LocalDate deliveryEtaDate;
+        private String  deliveryNote;
+        private Boolean installationRequested;
+        private java.time.LocalDate installationDate;
+        private java.time.LocalDate installationEtaDate;
+        private String  installationNote;
+        private java.time.LocalDateTime deliveredAt;
+        private java.time.LocalDateTime installedAt;
+        private String  internalNote;
         /** Contenu brut du champ JSON delivery_json */
         private String  deliveryJson;
     }
@@ -62,6 +82,9 @@ public class OrderAdminResponseDto {
     @Data @Builder
     public static class AmountsDto {
         private BigDecimal totalAmount;
+        private BigDecimal amountPaid;
+        private BigDecimal amountDue;
+        private BigDecimal depositAmount;
     }
 
     @Data @Builder

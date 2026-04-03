@@ -19,6 +19,8 @@ app:
       - "https://admin.sopikeur.sn"
       - "https://develop.sopikeur-front.pages.dev"
       - "https://develop.sopikeur-backoffice.pages.dev"
+  tracking:
+    base-url: "https://sopikeur.sn"
   turnstile:
     secret: ${APP_TURNSTILE_SECRET:}
 

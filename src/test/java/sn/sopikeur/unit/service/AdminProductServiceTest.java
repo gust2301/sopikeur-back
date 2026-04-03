@@ -10,7 +10,9 @@ import sn.sopikeur.entity.catalog.Product;
 import sn.sopikeur.entity.catalog.ProductStatus;
 import sn.sopikeur.entity.catalog.ProductType;
 import sn.sopikeur.mapper.AdminProductMapper;
+import sn.sopikeur.repo.MediaAssetRepository;
 import sn.sopikeur.repo.ProductRepository;
+import sn.sopikeur.repo.StockItemRepository;
 import sn.sopikeur.service.AdminProductService;
 
 import java.math.BigDecimal;
@@ -25,6 +27,12 @@ class AdminProductServiceTest {
 
     @Mock
     private ProductRepository productRepository;
+
+    @Mock
+    private MediaAssetRepository mediaAssetRepository;
+
+    @Mock
+    private StockItemRepository stockItemRepository;
 
     @Mock
     private AdminProductMapper adminProductMapper;

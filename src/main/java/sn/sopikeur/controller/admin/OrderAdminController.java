@@ -1,9 +1,16 @@
 package sn.sopikeur.controller.admin;
 
+import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import sn.sopikeur.dto.request.admin.AddOrderItemRequest;
+import sn.sopikeur.dto.request.admin.MarkOrderDeliveredRequest;
+import sn.sopikeur.dto.request.admin.MarkOrderInstalledRequest;
+import sn.sopikeur.dto.request.admin.UpdateOrderDeliveryRequest;
+import sn.sopikeur.dto.request.admin.UpdateOrderDetailsRequest;
 import sn.sopikeur.common.pagination.PageResponse;
 import sn.sopikeur.dto.response.admin.OrderAdminResponseDto;
 import sn.sopikeur.service.OrderAdminService;
@@ -31,6 +38,16 @@ public class OrderAdminController {
         return orderAdminService.list(page, size, status);
     }
 
+    @PostMapping("/{id}/items")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    public OrderAdminResponseDto addItem(
+        @PathVariable Long id,
+        @Valid @RequestBody AddOrderItemRequest body
+    ) {
+        return orderAdminService.addItem(id, body);
+    }
+
     @PatchMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
     public OrderAdminResponseDto updateStatus(
@@ -38,5 +55,51 @@ public class OrderAdminController {
         @RequestBody Map<String, String> body
     ) {
         return orderAdminService.updateStatus(id, body.get("status"));
+    }
+
+    @PatchMapping("/{id}/details")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES','EDITOR')")
+    public OrderAdminResponseDto updateDetails(
+        @PathVariable Long id,
+        @RequestBody UpdateOrderDetailsRequest body
+    ) {
+        return orderAdminService.updateDetails(id, body);
+    }
+
+    @PatchMapping("/{id}/delivery")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES','EDITOR')")
+    public OrderAdminResponseDto updateDelivery(
+        @PathVariable Long id,
+        @RequestBody UpdateOrderDeliveryRequest body
+    ) {
+        return orderAdminService.updateDelivery(id, body);
+    }
+
+    @PostMapping("/{id}/mark-delivered")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES','EDITOR')")
+    public OrderAdminResponseDto markDelivered(
+        @PathVariable Long id,
+        @RequestBody(required = false) MarkOrderDeliveredRequest body
+    ) {
+        return orderAdminService.markDelivered(id, body);
+    }
+
+    @PostMapping("/{id}/mark-installed")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES','EDITOR')")
+    public OrderAdminResponseDto markInstalled(
+        @PathVariable Long id,
+        @RequestBody(required = false) MarkOrderInstalledRequest body
+    ) {
+        return orderAdminService.markInstalled(id, body);
+    }
+
+    @PatchMapping("/{id}/payment")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    public OrderAdminResponseDto recordPayment(
+        @PathVariable Long id,
+        @RequestBody Map<String, Object> body
+    ) {
+        java.math.BigDecimal amountPaid = new java.math.BigDecimal(body.get("amountPaid").toString());
+        return orderAdminService.recordPayment(id, amountPaid);
     }
 }

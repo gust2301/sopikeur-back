@@ -1,6 +1,7 @@
 package sn.sopikeur.service;
 
 import java.math.BigDecimal;
+import java.util.EnumSet;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -17,16 +18,16 @@ import sn.sopikeur.repo.ContactMessageRepository;
 import sn.sopikeur.repo.PreorderRequestRepository;
 import sn.sopikeur.repo.ProductRepository;
 import sn.sopikeur.repo.QuoteRequestRepository;
-import sn.sopikeur.repo.order.OrderItemRepository;
 import sn.sopikeur.repo.order.OrderRepository;
 
 @Service
 @RequiredArgsConstructor
 public class DashboardAdminService {
+    private static final List<OrderStatus> ACTIVE_ORDER_STATUSES =
+        List.copyOf(EnumSet.of(OrderStatus.PENDING_CONFIRMATION, OrderStatus.CONFIRMED));
 
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
-    private final OrderItemRepository orderItemRepository;
     private final QuoteRequestRepository quoteRequestRepository;
     private final ContactMessageRepository contactMessageRepository;
     private final PreorderRequestRepository preorderRequestRepository;
@@ -39,10 +40,10 @@ public class DashboardAdminService {
         long pendingQuotes    = quoteRequestRepository.countByStatus(QuoteStatus.NEW);
         long pendingContacts  = contactMessageRepository.countByStatus(ContactStatus.NEW);
         long pendingPreorders = preorderRequestRepository.countByStatus(PreorderStatus.NEW);
-        var  totalRevenue     = orderItemRepository.sumRevenue();
+        var  totalRevenue     = orderRepository.sumPaidAmount();
 
         List<RecentOrderDto> recentOrders = orderRepository
-            .findAllByOrderByCreatedAtDesc(PageRequest.of(0, 5))
+            .findByStatusInOrderByCreatedAtDesc(ACTIVE_ORDER_STATUSES, PageRequest.of(0, 5))
             .stream()
             .map(o -> {
                 BigDecimal totalAmount = o.getItems().stream()
