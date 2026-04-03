@@ -31,6 +31,7 @@ public class OrderAdminResponseDto {
     private BigDecimal amountPaid;
     private BigDecimal amountDue;
     private BigDecimal depositAmount;
+    private BigDecimal installationAmount;
     private String     paymentStatus;
     private String     paymentPlan;
     private String     paymentMethodSelected;
@@ -61,6 +62,7 @@ public class OrderAdminResponseDto {
         private java.time.LocalDate installationDate;
         private java.time.LocalDate installationEtaDate;
         private String  installationNote;
+        private BigDecimal installationAmount;
         private java.time.LocalDateTime deliveredAt;
         private java.time.LocalDateTime installedAt;
         private String  internalNote;
@@ -85,6 +87,7 @@ public class OrderAdminResponseDto {
         private BigDecimal amountPaid;
         private BigDecimal amountDue;
         private BigDecimal depositAmount;
+        private BigDecimal installationAmount;
     }
 
     @Data @Builder

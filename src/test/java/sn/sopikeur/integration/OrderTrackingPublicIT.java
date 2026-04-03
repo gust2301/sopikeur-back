@@ -70,6 +70,7 @@ class OrderTrackingPublicIT extends BaseMySqlIT {
         saved.setInstallationRequested(true);
         saved.setInstallationEtaDate(LocalDate.of(2026, 4, 12));
         saved.setInstallationNote("Equipe a confirmer");
+        saved.setInstallationAmount(new java.math.BigDecimal("50000.00"));
         saved.setDeliveredAt(LocalDateTime.of(2026, 4, 9, 11, 30));
         saved.setInstalledAt(LocalDateTime.of(2026, 4, 12, 16, 45));
         orderRepository.save(saved);
@@ -89,6 +90,7 @@ class OrderTrackingPublicIT extends BaseMySqlIT {
             .andExpect(jsonPath("$.summary.city").value("Dakar"))
             .andExpect(jsonPath("$.summary.zone").value("Almadies"))
             .andExpect(jsonPath("$.payment.total").isNumber())
+            .andExpect(jsonPath("$.payment.installationAmount").value(50000.00))
             .andExpect(jsonPath("$.items[0].sku").value("SPC006"))
             .andExpect(jsonPath("$.timelineSteps[3].label").value("Livree"))
             .andExpect(jsonPath("$.timelineSteps[3].state").value("DONE"))

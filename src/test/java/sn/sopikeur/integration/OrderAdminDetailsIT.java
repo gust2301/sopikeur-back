@@ -90,6 +90,7 @@ class OrderAdminDetailsIT extends BaseMySqlIT {
                       "installationRequested":true,
                       "installationEtaDate":"2026-04-15",
                       "installationNote":"Equipe a confirmer",
+                      "installationAmount":50000,
                       "internalNote":"Commande VIP"
                     }
                 """))
@@ -99,6 +100,9 @@ class OrderAdminDetailsIT extends BaseMySqlIT {
             .andExpect(jsonPath("$.delivery.address").value("Residence 4"))
             .andExpect(jsonPath("$.delivery.deliveryEtaDate").value("2026-04-12"))
             .andExpect(jsonPath("$.delivery.installationEtaDate").value("2026-04-15"))
+            .andExpect(jsonPath("$.delivery.installationAmount").value(50000.00))
+            .andExpect(jsonPath("$.totalAmount").value(70000.00))
+            .andExpect(jsonPath("$.amountDue").value(70000.00))
             .andExpect(jsonPath("$.delivery.internalNote").value("Commande VIP"))
             .andExpect(jsonPath("$.trackingUrl").value("http://localhost:4200/suivi/" + jdbcTemplate.queryForObject("SELECT public_id FROM orders WHERE id = ?", String.class, orderId)));
 

@@ -1,5 +1,6 @@
 package sn.sopikeur.dto.request.admin;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import lombok.Data;
 
@@ -20,5 +21,6 @@ public class UpdateOrderDetailsRequest {
     private LocalDate installationDate;
     private LocalDate installationEtaDate;
     private String installationNote;
+    private BigDecimal installationAmount;
     private String internalNote;
 }

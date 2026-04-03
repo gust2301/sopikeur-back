@@ -47,6 +47,7 @@ public class PublicOrderTrackingResponseDto {
         private BigDecimal total;
         private BigDecimal paid;
         private BigDecimal due;
+        private BigDecimal installationAmount;
         private String paymentPlan;
         private String paymentMethod;
     }
