@@ -105,6 +105,9 @@ public class OrderEntity extends Auditable {
     @Column(name = "deposit_amount")
     private java.math.BigDecimal depositAmount;
 
+    @Column(name = "installation_amount")
+    private java.math.BigDecimal installationAmount;
+
     @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
     private List<OrderItem> items = new ArrayList<>();
 }

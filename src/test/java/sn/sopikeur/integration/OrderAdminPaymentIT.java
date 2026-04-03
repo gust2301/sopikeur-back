@@ -156,6 +156,27 @@ class OrderAdminPaymentIT extends BaseMySqlIT {
             .andExpect(jsonPath("$.amountDue").value(253500.00));
     }
 
+    @Test
+    void recordPayment_shouldUseTotalIncludingInstallationAmount() throws Exception {
+        Long orderId = createOrderAndReturnId();
+        jdbcTemplate.update(
+            "UPDATE orders SET installation_requested = TRUE, needs_installation = TRUE, installation_amount = 50000.00, amount_total = 1050000.00, amount_paid = 1000000.00, amount_due = 50000.00, payment_status = 'PARTIALLY_PAID' WHERE id = ?",
+            orderId
+        );
+
+        mockMvc.perform(patch("/api/v1/admin/orders/{id}/payment", orderId)
+                .header("Authorization", "Bearer " + login())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"amountPaid":50000}
+                """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalAmount").value(1050000.00))
+            .andExpect(jsonPath("$.amountPaid").value(1050000.00))
+            .andExpect(jsonPath("$.amountDue").value(0.00))
+            .andExpect(jsonPath("$.installationAmount").value(50000.00));
+    }
+
     private Long createOrderAndReturnId() throws Exception {
         String created = mockMvc.perform(post("/api/v1/orders")
                 .contentType(MediaType.APPLICATION_JSON)

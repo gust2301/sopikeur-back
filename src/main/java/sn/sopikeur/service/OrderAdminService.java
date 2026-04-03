@@ -96,6 +96,9 @@ public class OrderAdminService {
         item.setUnitPriceSnapshot(unitPrice);
         item.setLineTotalSnapshot(lineTotal);
         orderItemRepository.save(item);
+        BigDecimal total = resolvePersistedTotal(order).add(lineTotal);
+        syncFinancials(order, total);
+        orderRepository.save(order);
 
         return getById(orderId);
     }
@@ -110,6 +113,8 @@ public class OrderAdminService {
     @Transactional
     public OrderAdminResponseDto updateDetails(Long id, UpdateOrderDetailsRequest request) {
         OrderEntity order = findOrder(id);
+        BigDecimal previousTotal = resolvePersistedTotal(order);
+        BigDecimal previousInstallationAmount = resolveCurrentInstallationAmount(order);
 
         order.setFullName(trimToNull(request.getFullName()));
         order.setPhone(trimToNull(request.getPhone()));
@@ -121,7 +126,9 @@ public class OrderAdminService {
         applyInstallationRequested(order, request.getInstallationRequested());
         applyInstallationEta(order, request.getInstallationEtaDate() != null ? request.getInstallationEtaDate() : request.getInstallationDate());
         order.setInstallationNote(trimToNull(request.getInstallationNote()));
+        applyInstallationAmount(order, request.getInstallationAmount());
         order.setInternalNote(trimToNull(request.getInternalNote()));
+        syncFinancials(order, previousTotal.subtract(previousInstallationAmount).max(BigDecimal.ZERO).add(resolveCurrentInstallationAmount(order)));
 
         return toDto(orderRepository.save(order));
     }
@@ -129,6 +136,8 @@ public class OrderAdminService {
     @Transactional
     public OrderAdminResponseDto updateDelivery(Long id, UpdateOrderDeliveryRequest request) {
         OrderEntity order = findOrder(id);
+        BigDecimal previousTotal = resolvePersistedTotal(order);
+        BigDecimal previousInstallationAmount = resolveCurrentInstallationAmount(order);
 
         applyDeliveryFields(order, request.getCityZone(), request.getDeliveryCity(), request.getDeliveryZone(), request.getDeliveryAddress());
         applyDeliveryEta(order, request.getDeliveryEtaDate());
@@ -136,7 +145,9 @@ public class OrderAdminService {
         applyInstallationRequested(order, request.getInstallationRequested());
         applyInstallationEta(order, request.getInstallationEtaDate());
         order.setInstallationNote(trimToNull(request.getInstallationNote()));
+        applyInstallationAmount(order, request.getInstallationAmount());
         order.setInternalNote(trimToNull(request.getInternalNote()));
+        syncFinancials(order, previousTotal.subtract(previousInstallationAmount).max(BigDecimal.ZERO).add(resolveCurrentInstallationAmount(order)));
 
         return toDto(orderRepository.save(order));
     }
@@ -176,12 +187,7 @@ public class OrderAdminService {
             throw new IllegalArgumentException("Le montant du paiement doit etre strictement positif.");
         }
 
-        BigDecimal total = order.getAmountTotal();
-        if (total == null) {
-            total = order.getItems().stream()
-                .map(OrderItem::getLineTotalSnapshot)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        }
+        BigDecimal total = resolvePersistedTotal(order);
 
         BigDecimal currentPaid = order.getAmountPaid() != null ? order.getAmountPaid() : BigDecimal.ZERO;
         BigDecimal newPaid = currentPaid.add(amountPaid);
@@ -191,6 +197,7 @@ public class OrderAdminService {
         }
 
         order.setAmountPaid(newPaid);
+        order.setAmountTotal(total);
         order.setAmountDue(total.subtract(newPaid).max(BigDecimal.ZERO));
 
         OrderPaymentEntity payment = new OrderPaymentEntity();
@@ -228,11 +235,7 @@ public class OrderAdminService {
         List<OrderItem> rawItems = order.getItems();
         DeliveryDetails deliveryDetails = parseDeliveryDetails(order.getDeliveryJson());
 
-        BigDecimal totalAmount = rawItems.stream()
-            .map(OrderItem::getLineTotalSnapshot)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal apiTotalAmount = order.getAmountTotal() != null ? order.getAmountTotal() : totalAmount;
+        BigDecimal apiTotalAmount = resolvePersistedTotal(order);
         boolean installationRequested = resolveInstallationRequested(order);
 
         List<OrderAdminResponseDto.ItemDto> items = rawItems.stream()
@@ -277,6 +280,7 @@ public class OrderAdminService {
                 .installationDate(resolveInstallationEta(order))
                 .installationEtaDate(resolveInstallationEta(order))
                 .installationNote(order.getInstallationNote())
+                .installationAmount(order.getInstallationAmount())
                 .deliveredAt(order.getDeliveredAt())
                 .installedAt(order.getInstalledAt())
                 .internalNote(order.getInternalNote())
@@ -288,11 +292,13 @@ public class OrderAdminService {
                 .amountPaid(order.getAmountPaid())
                 .amountDue(order.getAmountDue())
                 .depositAmount(order.getDepositAmount())
+                .installationAmount(order.getInstallationAmount())
                 .build())
             .totalAmount(apiTotalAmount)
             .amountPaid(order.getAmountPaid())
             .amountDue(order.getAmountDue())
             .depositAmount(order.getDepositAmount())
+            .installationAmount(order.getInstallationAmount())
             .paymentStatus(order.getPaymentStatus() != null ? order.getPaymentStatus().name() : null)
             .paymentPlan(order.getPaymentPlan() != null ? order.getPaymentPlan().name() : null)
             .paymentMethodSelected(order.getPaymentMethodSelected())
@@ -330,8 +336,24 @@ public class OrderAdminService {
             order.setInstallationEtaDate(null);
             order.setInstallationDate(null);
             order.setInstallationNote(null);
+            order.setInstallationAmount(null);
             order.setInstalledAt(null);
         }
+    }
+
+    private void applyInstallationAmount(OrderEntity order, BigDecimal amount) {
+        if (!resolveInstallationRequested(order)) {
+            order.setInstallationAmount(null);
+            return;
+        }
+        if (amount == null) {
+            order.setInstallationAmount(null);
+            return;
+        }
+        if (amount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Le montant de pose ne peut pas etre negatif.");
+        }
+        order.setInstallationAmount(amount);
     }
 
     private boolean resolveInstallationRequested(OrderEntity order) {
@@ -344,6 +366,39 @@ public class OrderAdminService {
 
     private LocalDate resolveInstallationEta(OrderEntity order) {
         return order.getInstallationEtaDate() != null ? order.getInstallationEtaDate() : order.getInstallationDate();
+    }
+
+    private BigDecimal computeItemsTotal(OrderEntity order) {
+        BigDecimal itemsTotal = order.getItems().stream()
+            .map(OrderItem::getLineTotalSnapshot)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return itemsTotal;
+    }
+
+    private BigDecimal resolveCurrentInstallationAmount(OrderEntity order) {
+        return resolveInstallationRequested(order) && order.getInstallationAmount() != null
+            ? order.getInstallationAmount()
+            : BigDecimal.ZERO;
+    }
+
+    private BigDecimal resolvePersistedTotal(OrderEntity order) {
+        if (order.getAmountTotal() != null) {
+            return order.getAmountTotal();
+        }
+        return computeItemsTotal(order).add(resolveCurrentInstallationAmount(order));
+    }
+
+    private void syncFinancials(OrderEntity order, BigDecimal total) {
+        BigDecimal paid = order.getAmountPaid() != null ? order.getAmountPaid() : BigDecimal.ZERO;
+        order.setAmountTotal(total);
+        order.setAmountDue(total.subtract(paid).max(BigDecimal.ZERO));
+        if (paid.compareTo(BigDecimal.ZERO) <= 0) {
+            order.setPaymentStatus(PaymentStatus.UNPAID);
+        } else if (paid.compareTo(total) >= 0) {
+            order.setPaymentStatus(PaymentStatus.PAID);
+        } else {
+            order.setPaymentStatus(PaymentStatus.PARTIALLY_PAID);
+        }
     }
 
     private String buildTrackingUrl(String publicId) {
