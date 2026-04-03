@@ -2,6 +2,7 @@ package sn.sopikeur.entity.order;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -54,6 +55,9 @@ public class OrderEntity extends Auditable {
     @Column(name = "expected_delivery_date")
     private LocalDate expectedDeliveryDate;
 
+    @Column(name = "delivery_eta_date")
+    private LocalDate deliveryEtaDate;
+
     @Column(name = "delivery_note")
     private String deliveryNote;
 
@@ -63,8 +67,20 @@ public class OrderEntity extends Auditable {
     @Column(name = "installation_date")
     private LocalDate installationDate;
 
+    @Column(name = "installation_eta_date")
+    private LocalDate installationEtaDate;
+
     @Column(name = "installation_note")
     private String installationNote;
+
+    @Column(name = "delivered_at")
+    private LocalDateTime deliveredAt;
+
+    @Column(name = "installed_at")
+    private LocalDateTime installedAt;
+
+    @Column(name = "internal_note", columnDefinition = "TEXT")
+    private String internalNote;
 
     @Convert(converter = PaymentStatusConverter.class)
     @Column(name = "payment_status")

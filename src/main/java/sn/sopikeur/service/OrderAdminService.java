@@ -3,6 +3,8 @@ package sn.sopikeur.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -13,7 +15,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sn.sopikeur.common.error.NotFoundException;
 import sn.sopikeur.common.pagination.PageResponse;
+import sn.sopikeur.config.TrackingProperties;
 import sn.sopikeur.dto.request.admin.AddOrderItemRequest;
+import sn.sopikeur.dto.request.admin.MarkOrderDeliveredRequest;
+import sn.sopikeur.dto.request.admin.MarkOrderInstalledRequest;
+import sn.sopikeur.dto.request.admin.UpdateOrderDeliveryRequest;
 import sn.sopikeur.dto.request.admin.UpdateOrderDetailsRequest;
 import sn.sopikeur.dto.response.admin.OrderAdminResponseDto;
 import sn.sopikeur.entity.catalog.Product;
@@ -33,6 +39,7 @@ public class OrderAdminService {
     private final OrderItemRepository orderItemRepository;
     private final ProductRepository productRepository;
     private final ObjectMapper objectMapper;
+    private final TrackingProperties trackingProperties;
 
     @Transactional(readOnly = true)
     public PageResponse<OrderAdminResponseDto> list(int page, int size, String statusParam) {
@@ -63,15 +70,12 @@ public class OrderAdminService {
 
     @Transactional(readOnly = true)
     public OrderAdminResponseDto getById(Long id) {
-        OrderEntity order = orderRepository.findById(id)
-            .orElseThrow(() -> new NotFoundException("Commande introuvable"));
-        return toDto(order);
+        return toDto(findOrder(id));
     }
 
     @Transactional
     public OrderAdminResponseDto addItem(Long orderId, AddOrderItemRequest request) {
-        OrderEntity order = orderRepository.findById(orderId)
-            .orElseThrow(() -> new NotFoundException("Commande introuvable"));
+        OrderEntity order = findOrder(orderId);
         Product product = productRepository.findById(request.getProductId())
             .orElseThrow(() -> new NotFoundException("Produit introuvable"));
 
@@ -82,7 +86,7 @@ public class OrderAdminService {
         item.setOrder(order);
         item.setProduct(product);
         item.setSkuSnapshot(product.getSku() != null ? product.getSku() : product.getSlug());
-        item.setUnit(product.getUnit() != null ? product.getUnit() : "pièce");
+        item.setUnit(product.getUnit() != null ? product.getUnit() : "piece");
         item.setQty(request.getQuantity());
         item.setUnitPriceSnapshot(unitPrice);
         item.setLineTotalSnapshot(lineTotal);
@@ -93,53 +97,86 @@ public class OrderAdminService {
 
     @Transactional
     public OrderAdminResponseDto updateStatus(Long id, String statusParam) {
-        OrderEntity order = orderRepository.findById(id)
-            .orElseThrow(() -> new NotFoundException("Commande introuvable"));
+        OrderEntity order = findOrder(id);
         order.setStatus(OrderStatus.fromValue(statusParam));
         return toDto(orderRepository.save(order));
     }
 
     @Transactional
     public OrderAdminResponseDto updateDetails(Long id, UpdateOrderDetailsRequest request) {
-        OrderEntity order = orderRepository.findById(id)
-            .orElseThrow(() -> new NotFoundException("Commande introuvable"));
+        OrderEntity order = findOrder(id);
 
         order.setFullName(trimToNull(request.getFullName()));
         order.setPhone(trimToNull(request.getPhone()));
         order.setEmail(trimToNull(request.getEmail()));
-        order.setCityZone(resolveCityZone(request));
+        applyDeliveryFields(order, request.getCityZone(), request.getDeliveryCity(), request.getDeliveryZone(), request.getDeliveryAddress());
         order.setNote(trimToNull(request.getNote()));
-        order.setExpectedDeliveryDate(request.getExpectedDeliveryDate());
+        applyDeliveryEta(order, request.getDeliveryEtaDate() != null ? request.getDeliveryEtaDate() : request.getExpectedDeliveryDate());
         order.setDeliveryNote(trimToNull(request.getDeliveryNote()));
-
-        if (request.getInstallationRequested() != null) {
-            order.setInstallationRequested(request.getInstallationRequested());
-            order.setNeedsInstallation(request.getInstallationRequested());
-        }
-
-        order.setInstallationDate(request.getInstallationDate());
+        applyInstallationRequested(order, request.getInstallationRequested());
+        applyInstallationEta(order, request.getInstallationEtaDate() != null ? request.getInstallationEtaDate() : request.getInstallationDate());
         order.setInstallationNote(trimToNull(request.getInstallationNote()));
-        order.setDeliveryJson(buildDeliveryJson(request));
+        order.setInternalNote(trimToNull(request.getInternalNote()));
 
         return toDto(orderRepository.save(order));
     }
 
     @Transactional
-    public OrderAdminResponseDto recordPayment(Long id, java.math.BigDecimal amountPaid) {
-        OrderEntity order = orderRepository.findById(id)
-            .orElseThrow(() -> new NotFoundException("Commande introuvable"));
+    public OrderAdminResponseDto updateDelivery(Long id, UpdateOrderDeliveryRequest request) {
+        OrderEntity order = findOrder(id);
 
-        java.math.BigDecimal total = order.getAmountTotal();
+        applyDeliveryFields(order, request.getCityZone(), request.getDeliveryCity(), request.getDeliveryZone(), request.getDeliveryAddress());
+        applyDeliveryEta(order, request.getDeliveryEtaDate());
+        order.setDeliveryNote(trimToNull(request.getDeliveryNote()));
+        applyInstallationRequested(order, request.getInstallationRequested());
+        applyInstallationEta(order, request.getInstallationEtaDate());
+        order.setInstallationNote(trimToNull(request.getInstallationNote()));
+        order.setInternalNote(trimToNull(request.getInternalNote()));
+
+        return toDto(orderRepository.save(order));
+    }
+
+    @Transactional
+    public OrderAdminResponseDto markDelivered(Long id, MarkOrderDeliveredRequest request) {
+        OrderEntity order = findOrder(id);
+        LocalDateTime deliveredAt = request != null && request.getDeliveredAt() != null ? request.getDeliveredAt() : LocalDateTime.now();
+        order.setDeliveredAt(deliveredAt);
+        if (request != null && trimToNull(request.getNote()) != null) {
+            order.setDeliveryNote(trimToNull(request.getNote()));
+        }
+        return toDto(orderRepository.save(order));
+    }
+
+    @Transactional
+    public OrderAdminResponseDto markInstalled(Long id, MarkOrderInstalledRequest request) {
+        OrderEntity order = findOrder(id);
+        if (!resolveInstallationRequested(order)) {
+            throw new IllegalArgumentException("Installation non demandee pour cette commande");
+        }
+
+        LocalDateTime installedAt = request != null && request.getInstalledAt() != null ? request.getInstalledAt() : LocalDateTime.now();
+        order.setInstalledAt(installedAt);
+        if (request != null && trimToNull(request.getNote()) != null) {
+            order.setInstallationNote(trimToNull(request.getNote()));
+        }
+        return toDto(orderRepository.save(order));
+    }
+
+    @Transactional
+    public OrderAdminResponseDto recordPayment(Long id, BigDecimal amountPaid) {
+        OrderEntity order = findOrder(id);
+
+        BigDecimal total = order.getAmountTotal();
         if (total == null) {
             total = order.getItems().stream()
                 .map(OrderItem::getLineTotalSnapshot)
-                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
 
         order.setAmountPaid(amountPaid);
-        order.setAmountDue(total.subtract(amountPaid).max(java.math.BigDecimal.ZERO));
+        order.setAmountDue(total.subtract(amountPaid).max(BigDecimal.ZERO));
 
-        if (amountPaid.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+        if (amountPaid.compareTo(BigDecimal.ZERO) <= 0) {
             order.setPaymentStatus(PaymentStatus.UNPAID);
         } else if (amountPaid.compareTo(total) >= 0) {
             order.setPaymentStatus(PaymentStatus.PAID);
@@ -150,15 +187,21 @@ public class OrderAdminService {
         return toDto(orderRepository.save(order));
     }
 
-    private OrderAdminResponseDto toDto(OrderEntity o) {
-        List<OrderItem> rawItems = o.getItems();
-        DeliveryDetails deliveryDetails = parseDeliveryDetails(o.getDeliveryJson());
+    private OrderEntity findOrder(Long id) {
+        return orderRepository.findById(id)
+            .orElseThrow(() -> new NotFoundException("Commande introuvable"));
+    }
+
+    private OrderAdminResponseDto toDto(OrderEntity order) {
+        List<OrderItem> rawItems = order.getItems();
+        DeliveryDetails deliveryDetails = parseDeliveryDetails(order.getDeliveryJson());
 
         BigDecimal totalAmount = rawItems.stream()
             .map(OrderItem::getLineTotalSnapshot)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal apiTotalAmount = o.getAmountTotal() != null ? o.getAmountTotal() : totalAmount;
+        BigDecimal apiTotalAmount = order.getAmountTotal() != null ? order.getAmountTotal() : totalAmount;
+        boolean installationRequested = resolveInstallationRequested(order);
 
         List<OrderAdminResponseDto.ItemDto> items = rawItems.stream()
             .map(i -> OrderAdminResponseDto.ItemDto.builder()
@@ -172,63 +215,114 @@ public class OrderAdminService {
                 .build())
             .toList();
 
-        String reference = o.getOrderNumber() != null ? o.getOrderNumber() : o.getPublicId();
-        String createdAtStr = o.getCreatedAt() != null ? o.getCreatedAt().toString() : null;
+        String reference = order.getOrderNumber() != null ? order.getOrderNumber() : order.getPublicId();
 
         return OrderAdminResponseDto.builder()
-            // identité
-            .id(o.getId())
-            .publicId(o.getPublicId())
-            .orderNumber(o.getOrderNumber())
+            .id(order.getId())
+            .publicId(order.getPublicId())
+            .orderNumber(order.getOrderNumber())
             .reference(reference)
-            .status(o.getStatus() != null ? o.getStatus().name() : null)
-            // client (nested + plat pour rétrocompat liste)
+            .status(order.getStatus() != null ? order.getStatus().name() : null)
             .customer(OrderAdminResponseDto.CustomerDto.builder()
-                .fullName(o.getFullName())
-                .phone(o.getPhone())
-                .email(o.getEmail())
+                .fullName(order.getFullName())
+                .phone(order.getPhone())
+                .email(order.getEmail())
                 .build())
-            .customerName(o.getFullName())
-            .customerEmail(o.getEmail())
-            .customerPhone(o.getPhone())
-            // livraison
+            .customerName(order.getFullName())
+            .customerEmail(order.getEmail())
+            .customerPhone(order.getPhone())
             .delivery(OrderAdminResponseDto.DeliveryDto.builder()
-                .cityZone(o.getCityZone())
+                .cityZone(order.getCityZone())
                 .city(deliveryDetails.city())
                 .zone(deliveryDetails.zone())
                 .address(deliveryDetails.address())
-                .needsInstallation(o.isNeedsInstallation())
-                .note(o.getNote())
-                .expectedDeliveryDate(o.getExpectedDeliveryDate())
-                .deliveryNote(o.getDeliveryNote())
-                .installationRequested(o.getInstallationRequested())
-                .installationDate(o.getInstallationDate())
-                .installationNote(o.getInstallationNote())
-                .deliveryJson(o.getDeliveryJson())
+                .needsInstallation(order.isNeedsInstallation())
+                .note(order.getNote())
+                .expectedDeliveryDate(resolveDeliveryEta(order))
+                .deliveryEtaDate(resolveDeliveryEta(order))
+                .deliveryNote(order.getDeliveryNote())
+                .installationRequested(installationRequested)
+                .installationDate(resolveInstallationEta(order))
+                .installationEtaDate(resolveInstallationEta(order))
+                .installationNote(order.getInstallationNote())
+                .deliveredAt(order.getDeliveredAt())
+                .installedAt(order.getInstalledAt())
+                .internalNote(order.getInternalNote())
+                .deliveryJson(order.getDeliveryJson())
                 .build())
-            // articles
             .items(items)
-            // montants (nested + plat)
             .amounts(OrderAdminResponseDto.AmountsDto.builder()
                 .totalAmount(apiTotalAmount)
-                .amountPaid(o.getAmountPaid())
-                .amountDue(o.getAmountDue())
-                .depositAmount(o.getDepositAmount())
+                .amountPaid(order.getAmountPaid())
+                .amountDue(order.getAmountDue())
+                .depositAmount(order.getDepositAmount())
                 .build())
             .totalAmount(apiTotalAmount)
-            .amountPaid(o.getAmountPaid())
-            .amountDue(o.getAmountDue())
-            .depositAmount(o.getDepositAmount())
-            .paymentStatus(o.getPaymentStatus() != null ? o.getPaymentStatus().name() : null)
-            .paymentPlan(o.getPaymentPlan() != null ? o.getPaymentPlan().name() : null)
-            .paymentMethodSelected(o.getPaymentMethodSelected())
-            // dates (nested + plat)
+            .amountPaid(order.getAmountPaid())
+            .amountDue(order.getAmountDue())
+            .depositAmount(order.getDepositAmount())
+            .paymentStatus(order.getPaymentStatus() != null ? order.getPaymentStatus().name() : null)
+            .paymentPlan(order.getPaymentPlan() != null ? order.getPaymentPlan().name() : null)
+            .paymentMethodSelected(order.getPaymentMethodSelected())
             .timestamps(OrderAdminResponseDto.TimestampsDto.builder()
-                .createdAt(o.getCreatedAt())
-                .updatedAt(o.getUpdatedAt())
+                .createdAt(order.getCreatedAt())
+                .updatedAt(order.getUpdatedAt())
                 .build())
-            .createdAt(createdAtStr)
+            .createdAt(order.getCreatedAt() != null ? order.getCreatedAt().toString() : null)
+            .trackingUrl(buildTrackingUrl(order.getPublicId()))
             .build();
+    }
+
+    private void applyDeliveryFields(OrderEntity order, String cityZone, String deliveryCity, String deliveryZone, String deliveryAddress) {
+        order.setCityZone(resolveCityZone(cityZone, deliveryCity, deliveryZone));
+        order.setDeliveryJson(buildDeliveryJson(deliveryCity, deliveryZone, deliveryAddress));
+    }
+
+    private void applyDeliveryEta(OrderEntity order, LocalDate etaDate) {
+        order.setDeliveryEtaDate(etaDate);
+        order.setExpectedDeliveryDate(etaDate);
+    }
+
+    private void applyInstallationEta(OrderEntity order, LocalDate etaDate) {
+        order.setInstallationEtaDate(etaDate);
+        order.setInstallationDate(etaDate);
+    }
+
+    private void applyInstallationRequested(OrderEntity order, Boolean requested) {
+        if (requested == null) {
+            return;
+        }
+        order.setInstallationRequested(requested);
+        order.setNeedsInstallation(requested);
+        if (!requested) {
+            order.setInstallationEtaDate(null);
+            order.setInstallationDate(null);
+            order.setInstallationNote(null);
+            order.setInstalledAt(null);
+        }
+    }
+
+    private boolean resolveInstallationRequested(OrderEntity order) {
+        return order.getInstallationRequested() != null ? order.getInstallationRequested() : order.isNeedsInstallation();
+    }
+
+    private LocalDate resolveDeliveryEta(OrderEntity order) {
+        return order.getDeliveryEtaDate() != null ? order.getDeliveryEtaDate() : order.getExpectedDeliveryDate();
+    }
+
+    private LocalDate resolveInstallationEta(OrderEntity order) {
+        return order.getInstallationEtaDate() != null ? order.getInstallationEtaDate() : order.getInstallationDate();
+    }
+
+    private String buildTrackingUrl(String publicId) {
+        if (publicId == null || publicId.isBlank()) {
+            return null;
+        }
+        String baseUrl = trackingProperties.baseUrl();
+        if (baseUrl == null || baseUrl.isBlank()) {
+            return null;
+        }
+        return baseUrl.endsWith("/") ? baseUrl + "suivi/" + publicId : baseUrl + "/suivi/" + publicId;
     }
 
     private String trimToNull(String value) {
@@ -239,25 +333,25 @@ public class OrderAdminService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private String resolveCityZone(UpdateOrderDetailsRequest request) {
-        String explicitCityZone = trimToNull(request.getCityZone());
-        if (explicitCityZone != null) {
-            return explicitCityZone;
+    private String resolveCityZone(String explicitCityZone, String deliveryCity, String deliveryZone) {
+        String cityZone = trimToNull(explicitCityZone);
+        if (cityZone != null) {
+            return cityZone;
         }
 
-        String city = trimToNull(request.getDeliveryCity());
-        String zone = trimToNull(request.getDeliveryZone());
+        String city = trimToNull(deliveryCity);
+        String zone = trimToNull(deliveryZone);
         if (city == null) {
             return null;
         }
         return zone == null ? city : city + " - " + zone;
     }
 
-    private String buildDeliveryJson(UpdateOrderDetailsRequest request) {
+    private String buildDeliveryJson(String deliveryCity, String deliveryZone, String deliveryAddress) {
         DeliveryDetails details = new DeliveryDetails(
-            trimToNull(request.getDeliveryCity()),
-            trimToNull(request.getDeliveryZone()),
-            trimToNull(request.getDeliveryAddress())
+            trimToNull(deliveryCity),
+            trimToNull(deliveryZone),
+            trimToNull(deliveryAddress)
         );
 
         if (details.city() == null && details.zone() == null && details.address() == null) {

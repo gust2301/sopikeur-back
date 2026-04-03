@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import sn.sopikeur.common.constants.ApiConstants;
 import sn.sopikeur.dto.response.publicapi.order.OrderTrackingResponseDto;
+import sn.sopikeur.dto.response.publicapi.order.PublicOrderTrackingResponseDto;
 import sn.sopikeur.service.OrderTrackingService;
 
 @RestController
@@ -19,5 +20,10 @@ public class OrderTrackingPublicController {
     @GetMapping("/{publicId}")
     public OrderTrackingResponseDto getByPublicId(@PathVariable String publicId) {
         return orderTrackingService.getByPublicId(publicId);
+    }
+
+    @GetMapping("/{publicId}/tracking")
+    public PublicOrderTrackingResponseDto getTracking(@PathVariable String publicId) {
+        return orderTrackingService.getTrackingByPublicId(publicId);
     }
 }

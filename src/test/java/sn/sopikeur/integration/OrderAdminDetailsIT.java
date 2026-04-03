@@ -73,7 +73,63 @@ class OrderAdminDetailsIT extends BaseMySqlIT {
     }
 
     @Test
-    void updateDetails_shouldPersistCustomerDeliveryAndInstallationFields() throws Exception {
+    void deliveryWorkflowEndpoints_shouldPersistEtaAndCompletionFields() throws Exception {
+        Long orderId = createOrderAndReturnId();
+        String token = login();
+
+        mockMvc.perform(patch("/api/v1/admin/orders/{id}/delivery", orderId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "deliveryCity":"Saly",
+                      "deliveryZone":"Niakhniakhal",
+                      "deliveryAddress":"Residence 4",
+                      "deliveryEtaDate":"2026-04-12",
+                      "deliveryNote":"Appeler 30 min avant",
+                      "installationRequested":true,
+                      "installationEtaDate":"2026-04-15",
+                      "installationNote":"Equipe a confirmer",
+                      "internalNote":"Commande VIP"
+                    }
+                """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.delivery.city").value("Saly"))
+            .andExpect(jsonPath("$.delivery.zone").value("Niakhniakhal"))
+            .andExpect(jsonPath("$.delivery.address").value("Residence 4"))
+            .andExpect(jsonPath("$.delivery.deliveryEtaDate").value("2026-04-12"))
+            .andExpect(jsonPath("$.delivery.installationEtaDate").value("2026-04-15"))
+            .andExpect(jsonPath("$.delivery.internalNote").value("Commande VIP"))
+            .andExpect(jsonPath("$.trackingUrl").value("http://localhost:4200/suivi/" + jdbcTemplate.queryForObject("SELECT public_id FROM orders WHERE id = ?", String.class, orderId)));
+
+        mockMvc.perform(post("/api/v1/admin/orders/{id}/mark-delivered", orderId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "deliveredAt":"2026-04-11T10:15:00",
+                      "note":"Livre plus tot"
+                    }
+                """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.delivery.deliveredAt").value("2026-04-11T10:15:00"))
+            .andExpect(jsonPath("$.delivery.deliveryNote").value("Livre plus tot"));
+
+        mockMvc.perform(post("/api/v1/admin/orders/{id}/mark-installed", orderId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "installedAt":"2026-04-13T15:45:00",
+                      "note":"Pose terminee"
+                    }
+                """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.delivery.installedAt").value("2026-04-13T15:45:00"))
+            .andExpect(jsonPath("$.delivery.installationNote").value("Pose terminee"));
+    }
+
+    private Long createOrderAndReturnId() throws Exception {
         String createPayload = """
             {
               "customer": {
@@ -108,42 +164,7 @@ class OrderAdminDetailsIT extends BaseMySqlIT {
 
         JsonNode createdNode = objectMapper.readTree(created);
         String publicId = createdNode.get("id").asText();
-        Long orderId = jdbcTemplate.queryForObject("SELECT id FROM orders WHERE public_id = ?", Long.class, publicId);
-        String token = login();
-
-        mockMvc.perform(patch("/api/v1/admin/orders/{id}/details", orderId)
-                .header("Authorization", "Bearer " + token)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                    {
-                      "fullName":"Client Modifie",
-                      "phone":"+221780000000",
-                      "email":"updated@sopikeur.sn",
-                      "deliveryCity":"Saly",
-                      "deliveryZone":"Niakhniakhal",
-                      "deliveryAddress":"Residence 4",
-                      "expectedDeliveryDate":"2026-04-12",
-                      "deliveryNote":"Appeler 30 min avant",
-                      "installationRequested":true,
-                      "installationDate":"2026-04-15",
-                      "installationNote":"Equipe a confirmer",
-                      "note":"Commande VIP"
-                    }
-                """))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.customer.fullName").value("Client Modifie"))
-            .andExpect(jsonPath("$.customer.phone").value("+221780000000"))
-            .andExpect(jsonPath("$.customer.email").value("updated@sopikeur.sn"))
-            .andExpect(jsonPath("$.delivery.city").value("Saly"))
-            .andExpect(jsonPath("$.delivery.zone").value("Niakhniakhal"))
-            .andExpect(jsonPath("$.delivery.address").value("Residence 4"))
-            .andExpect(jsonPath("$.delivery.cityZone").value("Saly - Niakhniakhal"))
-            .andExpect(jsonPath("$.delivery.expectedDeliveryDate").value("2026-04-12"))
-            .andExpect(jsonPath("$.delivery.deliveryNote").value("Appeler 30 min avant"))
-            .andExpect(jsonPath("$.delivery.installationRequested").value(true))
-            .andExpect(jsonPath("$.delivery.installationDate").value("2026-04-15"))
-            .andExpect(jsonPath("$.delivery.installationNote").value("Equipe a confirmer"))
-            .andExpect(jsonPath("$.delivery.note").value("Commande VIP"));
+        return jdbcTemplate.queryForObject("SELECT id FROM orders WHERE public_id = ?", Long.class, publicId);
     }
 
     private String login() throws Exception {

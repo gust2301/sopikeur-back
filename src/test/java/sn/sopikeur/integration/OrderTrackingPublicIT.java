@@ -3,6 +3,7 @@ package sn.sopikeur.integration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -29,7 +30,7 @@ class OrderTrackingPublicIT extends BaseMySqlIT {
     private OrderRepository orderRepository;
 
     @Test
-    void getByPublicId_returnsTrackingPayloadWithoutJwt() throws Exception {
+    void getTrackingByPublicId_returnsWorkflowPayloadWithoutJwt() throws Exception {
         String payload = """
             {
               "customer": {
@@ -64,35 +65,39 @@ class OrderTrackingPublicIT extends BaseMySqlIT {
         String publicId = body.get("id").asText();
 
         OrderEntity saved = orderRepository.findByPublicId(publicId).orElseThrow();
-        saved.setExpectedDeliveryDate(LocalDate.of(2026, 4, 10));
+        saved.setDeliveryEtaDate(LocalDate.of(2026, 4, 10));
         saved.setDeliveryNote("Livraison en coordination avec le client");
         saved.setInstallationRequested(true);
-        saved.setInstallationNote("A confirmer");
+        saved.setInstallationEtaDate(LocalDate.of(2026, 4, 12));
+        saved.setInstallationNote("Equipe a confirmer");
+        saved.setDeliveredAt(LocalDateTime.of(2026, 4, 9, 11, 30));
+        saved.setInstalledAt(LocalDateTime.of(2026, 4, 12, 16, 45));
         orderRepository.save(saved);
 
-        mockMvc.perform(get("/api/v1/public/orders/{publicId}", publicId))
+        mockMvc.perform(get("/api/v1/public/orders/{publicId}/tracking", publicId))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.publicId").value(publicId))
-            .andExpect(jsonPath("$.orderRef").isNotEmpty())
-            .andExpect(jsonPath("$.status").value("PENDING_CONFIRMATION"))
-            .andExpect(jsonPath("$.customerName").value("Client Tracking"))
-            .andExpect(jsonPath("$.phone").value("+2*********67"))
-            .andExpect(jsonPath("$.delivery.city").value("Dakar"))
-            .andExpect(jsonPath("$.delivery.zone").value("Almadies"))
-            .andExpect(jsonPath("$.delivery.expectedDate").value("2026-04-10"))
-            .andExpect(jsonPath("$.delivery.expectedDeliveryDate").value("2026-04-10"))
-            .andExpect(jsonPath("$.delivery.note").value("Livraison en coordination avec le client"))
-            .andExpect(jsonPath("$.installation.requested").value(true))
-            .andExpect(jsonPath("$.installation.note").value("A confirmer"))
+            .andExpect(jsonPath("$.reference").isNotEmpty())
+            .andExpect(jsonPath("$.status").value("INSTALLED"))
             .andExpect(jsonPath("$.installationRequested").value(true))
-            .andExpect(jsonPath("$.installationDateText").value("A confirmer"))
+            .andExpect(jsonPath("$.deliveryEtaDate").value("2026-04-10"))
+            .andExpect(jsonPath("$.deliveredAt").value("2026-04-09T11:30:00"))
+            .andExpect(jsonPath("$.installationEtaDate").value("2026-04-12"))
+            .andExpect(jsonPath("$.installedAt").value("2026-04-12T16:45:00"))
+            .andExpect(jsonPath("$.summary.customerName").value("Client Tracking"))
+            .andExpect(jsonPath("$.summary.phone").value("+2*********67"))
+            .andExpect(jsonPath("$.summary.city").value("Dakar"))
+            .andExpect(jsonPath("$.summary.zone").value("Almadies"))
+            .andExpect(jsonPath("$.payment.total").isNumber())
             .andExpect(jsonPath("$.items[0].sku").value("SPC006"))
-            .andExpect(jsonPath("$.totals.total").isNumber())
-            .andExpect(jsonPath("$.email").doesNotExist())
-            .andExpect(jsonPath("$.customerEmail").doesNotExist())
-            .andExpect(jsonPath("$.timeline[0].label").value("Commande recue"));
+            .andExpect(jsonPath("$.timelineSteps[3].label").value("Livree"))
+            .andExpect(jsonPath("$.timelineSteps[3].state").value("DONE"))
+            .andExpect(jsonPath("$.timelineSteps[5].label").value("Installation terminee"))
+            .andExpect(jsonPath("$.timelineSteps[5].state").value("DONE"))
+            .andExpect(jsonPath("$.internalNote").doesNotExist())
+            .andExpect(jsonPath("$.summary.email").doesNotExist());
 
-        String response = mockMvc.perform(get("/api/v1/public/orders/{publicId}", publicId))
+        String response = mockMvc.perform(get("/api/v1/public/orders/{publicId}/tracking", publicId))
             .andReturn()
             .getResponse()
             .getContentAsString();
@@ -100,8 +105,8 @@ class OrderTrackingPublicIT extends BaseMySqlIT {
     }
 
     @Test
-    void getByPublicId_returns404WhenUnknown() throws Exception {
-        mockMvc.perform(get("/api/v1/public/orders/{publicId}", "missing-public-id"))
+    void getTrackingByPublicId_returns404WhenUnknown() throws Exception {
+        mockMvc.perform(get("/api/v1/public/orders/{publicId}/tracking", "missing-public-id"))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }

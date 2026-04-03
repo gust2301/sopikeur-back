@@ -50,6 +50,8 @@ app:
       # Local dev (pratique pour tester en staging depuis son poste)
       - "http://localhost:4200"
       - "http://localhost:4201"
+  tracking:
+    base-url: "https://develop.sopikeur-front.pages.dev"
 
 # ─── Logging ─────────────────────────────────────────────────────────────────
 logging:

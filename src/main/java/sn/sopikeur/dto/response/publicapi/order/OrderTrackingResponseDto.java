@@ -6,14 +6,13 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.Builder;
 import lombok.Data;
-import sn.sopikeur.entity.order.OrderStatus;
 
 @Data
 @Builder
 public class OrderTrackingResponseDto {
     private String orderRef;
     private String publicId;
-    private OrderStatus status;
+    private String status;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
     private String customerName;

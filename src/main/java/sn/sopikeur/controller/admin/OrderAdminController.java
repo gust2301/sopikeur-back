@@ -7,6 +7,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import sn.sopikeur.dto.request.admin.AddOrderItemRequest;
+import sn.sopikeur.dto.request.admin.MarkOrderDeliveredRequest;
+import sn.sopikeur.dto.request.admin.MarkOrderInstalledRequest;
+import sn.sopikeur.dto.request.admin.UpdateOrderDeliveryRequest;
 import sn.sopikeur.dto.request.admin.UpdateOrderDetailsRequest;
 import sn.sopikeur.common.pagination.PageResponse;
 import sn.sopikeur.dto.response.admin.OrderAdminResponseDto;
@@ -55,12 +58,39 @@ public class OrderAdminController {
     }
 
     @PatchMapping("/{id}/details")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES','EDITOR')")
     public OrderAdminResponseDto updateDetails(
         @PathVariable Long id,
         @RequestBody UpdateOrderDetailsRequest body
     ) {
         return orderAdminService.updateDetails(id, body);
+    }
+
+    @PatchMapping("/{id}/delivery")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES','EDITOR')")
+    public OrderAdminResponseDto updateDelivery(
+        @PathVariable Long id,
+        @RequestBody UpdateOrderDeliveryRequest body
+    ) {
+        return orderAdminService.updateDelivery(id, body);
+    }
+
+    @PostMapping("/{id}/mark-delivered")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES','EDITOR')")
+    public OrderAdminResponseDto markDelivered(
+        @PathVariable Long id,
+        @RequestBody(required = false) MarkOrderDeliveredRequest body
+    ) {
+        return orderAdminService.markDelivered(id, body);
+    }
+
+    @PostMapping("/{id}/mark-installed")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES','EDITOR')")
+    public OrderAdminResponseDto markInstalled(
+        @PathVariable Long id,
+        @RequestBody(required = false) MarkOrderInstalledRequest body
+    ) {
+        return orderAdminService.markInstalled(id, body);
     }
 
     @PatchMapping("/{id}/payment")

@@ -35,6 +35,7 @@ public class OrderAdminResponseDto {
     private String     paymentPlan;
     private String     paymentMethodSelected;
     private String     createdAt;
+    private String     trackingUrl;
 
     // ── Nested DTOs ──────────────────────────────────────────────────────────
 
@@ -54,10 +55,15 @@ public class OrderAdminResponseDto {
         private boolean needsInstallation;
         private String  note;
         private java.time.LocalDate expectedDeliveryDate;
+        private java.time.LocalDate deliveryEtaDate;
         private String  deliveryNote;
         private Boolean installationRequested;
         private java.time.LocalDate installationDate;
+        private java.time.LocalDate installationEtaDate;
         private String  installationNote;
+        private java.time.LocalDateTime deliveredAt;
+        private java.time.LocalDateTime installedAt;
+        private String  internalNote;
         /** Contenu brut du champ JSON delivery_json */
         private String  deliveryJson;
     }

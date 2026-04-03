@@ -4,12 +4,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import sn.sopikeur.dto.response.publicapi.order.OrderTrackingResponseDto;
+import sn.sopikeur.dto.response.publicapi.order.PublicOrderTrackingResponseDto;
 import sn.sopikeur.entity.order.OrderEntity;
 import sn.sopikeur.entity.order.OrderItem;
 import sn.sopikeur.entity.order.OrderStatus;
@@ -17,6 +20,8 @@ import sn.sopikeur.entity.order.OrderStatus;
 @Component
 @RequiredArgsConstructor
 public class OrderTrackingMapper {
+
+    private static final DateTimeFormatter DATE_TIME_DISPLAY = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final ObjectMapper objectMapper;
 
@@ -26,11 +31,13 @@ public class OrderTrackingMapper {
         BigDecimal total = computeTotal(order);
         BigDecimal paid = order.getAmountPaid() != null ? order.getAmountPaid() : BigDecimal.ZERO;
         BigDecimal due = order.getAmountDue() != null ? order.getAmountDue() : total.subtract(paid).max(BigDecimal.ZERO);
+        LocalDate deliveryEta = resolveDeliveryEta(order);
+        LocalDate installationEta = resolveInstallationEta(order);
 
         return OrderTrackingResponseDto.builder()
-            .orderRef(order.getOrderNumber() != null ? order.getOrderNumber() : order.getPublicId())
+            .orderRef(resolveReference(order))
             .publicId(order.getPublicId())
-            .status(order.getStatus())
+            .status(resolveDisplayStatus(order))
             .createdAt(order.getCreatedAt())
             .updatedAt(order.getUpdatedAt())
             .customerName(order.getFullName())
@@ -39,19 +46,19 @@ public class OrderTrackingMapper {
                 .city(deliveryInfo.city())
                 .zone(deliveryInfo.zone())
                 .cityZone(order.getCityZone())
-                .expectedDate(order.getExpectedDeliveryDate())
-                .expectedDeliveryDate(order.getExpectedDeliveryDate())
+                .expectedDate(deliveryEta)
+                .expectedDeliveryDate(deliveryEta)
                 .note(order.getDeliveryNote())
                 .build())
             .installation(OrderTrackingResponseDto.InstallationDto.builder()
                 .requested(installationRequested)
-                .date(order.getInstallationDate())
+                .date(installationEta)
                 .note(resolveInstallationNote(order))
                 .build())
             .installationRequested(installationRequested)
-            .installationDate(order.getInstallationDate())
+            .installationDate(installationEta)
             .installationDateText(resolveInstallationDateText(order))
-            .items(order.getItems().stream().map(this::toItemDto).toList())
+            .items(order.getItems().stream().map(this::toLegacyItemDto).toList())
             .totals(OrderTrackingResponseDto.TotalsDto.builder()
                 .total(total)
                 .paid(paid)
@@ -61,12 +68,57 @@ public class OrderTrackingMapper {
                 .paymentPlan(mapPaymentPlan(order))
                 .paymentMethod(mapPaymentMethod(order.getPaymentMethodSelected()))
                 .build())
-            .timeline(buildTimeline(order))
+            .timeline(buildLegacyTimeline(order))
             .build();
     }
 
-    private OrderTrackingResponseDto.ItemDto toItemDto(OrderItem item) {
+    public PublicOrderTrackingResponseDto toTrackingDto(OrderEntity order) {
+        DeliveryInfo deliveryInfo = parseDelivery(order);
+        BigDecimal total = computeTotal(order);
+        BigDecimal paid = order.getAmountPaid() != null ? order.getAmountPaid() : BigDecimal.ZERO;
+        BigDecimal due = order.getAmountDue() != null ? order.getAmountDue() : total.subtract(paid).max(BigDecimal.ZERO);
+
+        return PublicOrderTrackingResponseDto.builder()
+            .reference(resolveReference(order))
+            .publicId(order.getPublicId())
+            .status(resolveDisplayStatus(order))
+            .installationRequested(resolveInstallationRequested(order))
+            .deliveryEtaDate(resolveDeliveryEta(order))
+            .deliveredAt(order.getDeliveredAt())
+            .installationEtaDate(resolveInstallationEta(order))
+            .installedAt(order.getInstalledAt())
+            .timelineSteps(buildTrackingTimeline(order))
+            .summary(PublicOrderTrackingResponseDto.SummaryDto.builder()
+                .customerName(order.getFullName())
+                .phone(maskPhone(order.getPhone()))
+                .city(deliveryInfo.city())
+                .zone(deliveryInfo.zone())
+                .cityZone(order.getCityZone())
+                .build())
+            .payment(PublicOrderTrackingResponseDto.TotalsDto.builder()
+                .total(total)
+                .paid(paid)
+                .due(due)
+                .paymentPlan(mapPaymentPlan(order))
+                .paymentMethod(mapPaymentMethod(order.getPaymentMethodSelected()))
+                .build())
+            .items(order.getItems().stream().map(this::toTrackingItemDto).toList())
+            .build();
+    }
+
+    private OrderTrackingResponseDto.ItemDto toLegacyItemDto(OrderItem item) {
         return OrderTrackingResponseDto.ItemDto.builder()
+            .sku(item.getSkuSnapshot())
+            .name(item.getProduct() != null ? item.getProduct().getName() : item.getSkuSnapshot())
+            .unit(item.getUnit())
+            .quantity(item.getQty())
+            .unitPrice(item.getUnitPriceSnapshot())
+            .lineTotal(item.getLineTotalSnapshot())
+            .build();
+    }
+
+    private PublicOrderTrackingResponseDto.ItemDto toTrackingItemDto(OrderItem item) {
+        return PublicOrderTrackingResponseDto.ItemDto.builder()
             .sku(item.getSkuSnapshot())
             .name(item.getProduct() != null ? item.getProduct().getName() : item.getSkuSnapshot())
             .unit(item.getUnit())
@@ -154,6 +206,14 @@ public class OrderTrackingMapper {
         return order.isNeedsInstallation();
     }
 
+    private LocalDate resolveDeliveryEta(OrderEntity order) {
+        return order.getDeliveryEtaDate() != null ? order.getDeliveryEtaDate() : order.getExpectedDeliveryDate();
+    }
+
+    private LocalDate resolveInstallationEta(OrderEntity order) {
+        return order.getInstallationEtaDate() != null ? order.getInstallationEtaDate() : order.getInstallationDate();
+    }
+
     private String resolveInstallationNote(OrderEntity order) {
         if (order.getInstallationNote() == null || order.getInstallationNote().isBlank()) {
             return null;
@@ -165,7 +225,7 @@ public class OrderTrackingMapper {
         if (!resolveInstallationRequested(order)) {
             return null;
         }
-        if (order.getInstallationDate() != null) {
+        if (resolveInstallationEta(order) != null) {
             return null;
         }
         String installationNote = resolveInstallationNote(order);
@@ -173,6 +233,20 @@ public class OrderTrackingMapper {
             return installationNote;
         }
         return "A confirmer";
+    }
+
+    private String resolveReference(OrderEntity order) {
+        return order.getOrderNumber() != null ? order.getOrderNumber() : order.getPublicId();
+    }
+
+    private String resolveDisplayStatus(OrderEntity order) {
+        if (order.getInstalledAt() != null) {
+            return "INSTALLED";
+        }
+        if (order.getDeliveredAt() != null) {
+            return "DELIVERED";
+        }
+        return order.getStatus() != null ? order.getStatus().name() : OrderStatus.PENDING_CONFIRMATION.name();
     }
 
     private String maskPhone(String phone) {
@@ -186,49 +260,62 @@ public class OrderTrackingMapper {
         return normalized.substring(0, 2) + "*".repeat(Math.max(0, normalized.length() - 4)) + normalized.substring(normalized.length() - 2);
     }
 
-    private List<OrderTrackingResponseDto.TimelineStepDto> buildTimeline(OrderEntity order) {
-        List<OrderTrackingResponseDto.TimelineStepDto> timeline = new ArrayList<>();
-        OrderStatus status = order.getStatus() != null ? order.getStatus() : OrderStatus.PENDING_CONFIRMATION;
-        boolean confirmed = status == OrderStatus.CONFIRMED || status == OrderStatus.FULFILLED;
-        boolean fulfilled = status == OrderStatus.FULFILLED;
+    private List<OrderTrackingResponseDto.TimelineStepDto> buildLegacyTimeline(OrderEntity order) {
+        return buildTrackingTimeline(order).stream()
+            .map(step -> OrderTrackingResponseDto.TimelineStepDto.builder()
+                .label(step.getLabel())
+                .date(step.getDateDisplay())
+                .done("DONE".equals(step.getState()))
+                .build())
+            .toList();
+    }
+
+    private List<PublicOrderTrackingResponseDto.TimelineStepDto> buildTrackingTimeline(OrderEntity order) {
+        List<PublicOrderTrackingResponseDto.TimelineStepDto> timeline = new ArrayList<>();
         boolean installationRequested = resolveInstallationRequested(order);
+        boolean confirmed = isConfirmed(order);
+        boolean delivered = order.getDeliveredAt() != null;
+        boolean installed = order.getInstalledAt() != null;
 
-        timeline.add(step("Commande recue", order.getCreatedAt(), true));
-        timeline.add(step("Commande confirmee", confirmed ? order.getUpdatedAt() : null, confirmed));
-        timeline.add(step("Preparation en cours", confirmed ? order.getUpdatedAt() : null, confirmed));
-        timeline.add(step("Livraison en cours", fulfilled ? resolveDeliveryStepDate(order) : order.getExpectedDeliveryDate(), fulfilled));
+        timeline.add(step("Commande recue", "DONE", formatDate(order.getCreatedAt())));
+        timeline.add(step("Confirmee", confirmed ? "DONE" : "CURRENT", confirmed ? formatDate(order.getUpdatedAt()) : null));
+        timeline.add(step("Preparation", confirmed ? "DONE" : "TODO", confirmed ? formatDate(order.getUpdatedAt()) : null));
 
-        String finalLabel = installationRequested ? "Installation terminee" : "Commande finalisee";
-        String finalDate = fulfilled ? resolveFinalStepDate(order, installationRequested) : null;
-        timeline.add(OrderTrackingResponseDto.TimelineStepDto.builder()
-            .label(finalLabel)
-            .date(finalDate)
-            .done(fulfilled)
-            .build());
+        String deliveryState = delivered ? "DONE" : (confirmed ? "CURRENT" : "TODO");
+        timeline.add(step(
+            delivered ? "Livree" : "Livraison planifiee",
+            deliveryState,
+            delivered ? formatDate(order.getDeliveredAt()) : formatDate(resolveDeliveryEta(order))
+        ));
+
+        if (installationRequested) {
+            String installationPlanningState = delivered ? "DONE" : (confirmed ? "CURRENT" : "TODO");
+            timeline.add(step(
+                installed ? "Installation en cours" : "Installation planifiee",
+                installationPlanningState,
+                installed ? formatDate(order.getInstalledAt()) : formatDate(resolveInstallationEta(order))
+            ));
+            timeline.add(step(
+                "Installation terminee",
+                installed ? "DONE" : (delivered ? "CURRENT" : "TODO"),
+                installed ? formatDate(order.getInstalledAt()) : formatDate(resolveInstallationEta(order))
+            ));
+        }
 
         return timeline;
     }
 
-    private OrderTrackingResponseDto.TimelineStepDto step(String label, Object date, boolean done) {
-        return OrderTrackingResponseDto.TimelineStepDto.builder()
+    private boolean isConfirmed(OrderEntity order) {
+        OrderStatus status = order.getStatus() != null ? order.getStatus() : OrderStatus.PENDING_CONFIRMATION;
+        return status == OrderStatus.CONFIRMED || status == OrderStatus.FULFILLED || order.getDeliveredAt() != null || order.getInstalledAt() != null;
+    }
+
+    private PublicOrderTrackingResponseDto.TimelineStepDto step(String label, String state, String dateDisplay) {
+        return PublicOrderTrackingResponseDto.TimelineStepDto.builder()
             .label(label)
-            .date(formatDate(date))
-            .done(done)
+            .state(state)
+            .dateDisplay(dateDisplay)
             .build();
-    }
-
-    private String resolveDeliveryStepDate(OrderEntity order) {
-        if (order.getExpectedDeliveryDate() != null) {
-            return order.getExpectedDeliveryDate().toString();
-        }
-        return formatDate(order.getUpdatedAt());
-    }
-
-    private String resolveFinalStepDate(OrderEntity order, boolean installationRequested) {
-        if (installationRequested && order.getInstallationDate() != null) {
-            return order.getInstallationDate().toString();
-        }
-        return formatDate(order.getUpdatedAt());
     }
 
     private String formatDate(Object value) {
@@ -240,6 +327,9 @@ public class OrderTrackingMapper {
         }
         if (value instanceof LocalDate localDate) {
             return localDate.toString();
+        }
+        if (value instanceof LocalDateTime localDateTime) {
+            return localDateTime.format(DATE_TIME_DISPLAY);
         }
         return String.valueOf(value);
     }
