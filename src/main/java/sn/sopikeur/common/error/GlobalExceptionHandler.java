@@ -1,6 +1,7 @@
 package sn.sopikeur.common.error;
 
 import java.util.List;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -23,6 +24,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException ex) {
         return ResponseEntity.badRequest().body(ApiError.builder().code("BAD_REQUEST").message(ex.getMessage()).build());
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        String message = extractConstraintMessage(ex);
+        return ResponseEntity.badRequest().body(ApiError.builder().code("BAD_REQUEST").message(message).build());
     }
 
     @ExceptionHandler(StockConflictException.class)
@@ -52,5 +59,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiError> handleForbidden(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiError.builder().code("FORBIDDEN").message("Forbidden").build());
+    }
+
+    private String extractConstraintMessage(DataIntegrityViolationException ex) {
+        String raw = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        if (raw == null) {
+            return "Operation impossible a cause d'une contrainte de donnees.";
+        }
+        if (raw.contains("products.sku")) {
+            return "Un produit avec ce SKU existe deja.";
+        }
+        if (raw.contains("products.slug")) {
+            return "Un produit avec ce slug existe deja.";
+        }
+        return "Operation impossible a cause d'une contrainte de donnees.";
     }
 }
