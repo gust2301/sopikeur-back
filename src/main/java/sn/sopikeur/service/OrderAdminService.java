@@ -11,6 +11,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import sn.sopikeur.common.error.NotFoundException;
@@ -25,10 +27,12 @@ import sn.sopikeur.dto.response.admin.OrderAdminResponseDto;
 import sn.sopikeur.entity.catalog.Product;
 import sn.sopikeur.entity.order.OrderEntity;
 import sn.sopikeur.entity.order.OrderItem;
+import sn.sopikeur.entity.order.OrderPaymentEntity;
 import sn.sopikeur.entity.order.OrderStatus;
 import sn.sopikeur.entity.order.PaymentStatus;
 import sn.sopikeur.repo.ProductRepository;
 import sn.sopikeur.repo.order.OrderItemRepository;
+import sn.sopikeur.repo.order.OrderPaymentRepository;
 import sn.sopikeur.repo.order.OrderRepository;
 
 @Service
@@ -37,6 +41,7 @@ public class OrderAdminService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final OrderPaymentRepository orderPaymentRepository;
     private final ProductRepository productRepository;
     private final ObjectMapper objectMapper;
     private final TrackingProperties trackingProperties;
@@ -164,7 +169,12 @@ public class OrderAdminService {
 
     @Transactional
     public OrderAdminResponseDto recordPayment(Long id, BigDecimal amountPaid) {
-        OrderEntity order = findOrder(id);
+        OrderEntity order = orderRepository.findWithLockById(id)
+            .orElseThrow(() -> new NotFoundException("Commande introuvable"));
+
+        if (amountPaid == null || amountPaid.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Le montant du paiement doit etre strictement positif.");
+        }
 
         BigDecimal total = order.getAmountTotal();
         if (total == null) {
@@ -173,12 +183,26 @@ public class OrderAdminService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
 
-        order.setAmountPaid(amountPaid);
-        order.setAmountDue(total.subtract(amountPaid).max(BigDecimal.ZERO));
+        BigDecimal currentPaid = order.getAmountPaid() != null ? order.getAmountPaid() : BigDecimal.ZERO;
+        BigDecimal newPaid = currentPaid.add(amountPaid);
 
-        if (amountPaid.compareTo(BigDecimal.ZERO) <= 0) {
+        if (newPaid.compareTo(total) > 0) {
+            throw new IllegalArgumentException("Le montant saisi depasse le restant du de la commande.");
+        }
+
+        order.setAmountPaid(newPaid);
+        order.setAmountDue(total.subtract(newPaid).max(BigDecimal.ZERO));
+
+        OrderPaymentEntity payment = new OrderPaymentEntity();
+        payment.setOrder(order);
+        payment.setAmount(amountPaid);
+        payment.setMethod(order.getPaymentMethodSelected());
+        payment.setCreatedBy(resolveActor());
+        orderPaymentRepository.save(payment);
+
+        if (newPaid.compareTo(BigDecimal.ZERO) <= 0) {
             order.setPaymentStatus(PaymentStatus.UNPAID);
-        } else if (amountPaid.compareTo(total) >= 0) {
+        } else if (newPaid.compareTo(total) >= 0) {
             order.setPaymentStatus(PaymentStatus.PAID);
         } else {
             order.setPaymentStatus(PaymentStatus.PARTIALLY_PAID);
@@ -190,6 +214,14 @@ public class OrderAdminService {
     private OrderEntity findOrder(Long id) {
         return orderRepository.findById(id)
             .orElseThrow(() -> new NotFoundException("Commande introuvable"));
+    }
+
+    private String resolveActor() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
+            return null;
+        }
+        return authentication.getName();
     }
 
     private OrderAdminResponseDto toDto(OrderEntity order) {
