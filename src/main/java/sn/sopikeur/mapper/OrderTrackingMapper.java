@@ -99,6 +99,7 @@ public class OrderTrackingMapper {
                 .total(total)
                 .paid(paid)
                 .due(due)
+                .installationAmount(order.getInstallationAmount())
                 .paymentPlan(mapPaymentPlan(order))
                 .paymentMethod(mapPaymentMethod(order.getPaymentMethodSelected()))
                 .build())
