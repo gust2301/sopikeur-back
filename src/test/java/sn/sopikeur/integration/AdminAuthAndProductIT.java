@@ -158,6 +158,51 @@ class AdminAuthAndProductIT extends BaseMySqlIT {
             .andExpect(status().isConflict());
     }
 
+    @Test
+    void createProduct_withDuplicateSku_shouldReturnClearBadRequest() throws Exception {
+        String token = login();
+
+        String firstPayload = """
+            {
+              "sku":"SKT006",
+              "slug":"plinthe-spc006-first-test",
+              "name":"Plinthe SPC006 First",
+              "type":"ACCESSORY",
+              "status":"DRAFT",
+              "featured":false,
+              "price":4000.00,
+              "unit":""
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/admin/products")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(firstPayload))
+            .andExpect(status().isOk());
+
+        String duplicatePayload = """
+            {
+              "sku":"SKT006",
+              "slug":"plinthe-spc006-duplicate-test",
+              "name":"Plinthe SPC006 Duplicate",
+              "type":"ACCESSORY",
+              "status":"DRAFT",
+              "featured":false,
+              "price":4000.00,
+              "unit":""
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/admin/products")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(duplicatePayload))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
+            .andExpect(jsonPath("$.message").value("Un produit avec ce SKU existe deja."));
+    }
+
     private String login() throws Exception {
         String response = mockMvc.perform(post("/api/v1/admin/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
