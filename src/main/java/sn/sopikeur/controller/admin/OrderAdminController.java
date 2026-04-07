@@ -1,19 +1,35 @@
 package sn.sopikeur.controller.admin;
 
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+import sn.sopikeur.common.pagination.PageResponse;
 import sn.sopikeur.dto.request.admin.AddOrderItemRequest;
 import sn.sopikeur.dto.request.admin.MarkOrderDeliveredRequest;
 import sn.sopikeur.dto.request.admin.MarkOrderInstalledRequest;
 import sn.sopikeur.dto.request.admin.UpdateOrderDeliveryRequest;
 import sn.sopikeur.dto.request.admin.UpdateOrderDetailsRequest;
-import sn.sopikeur.common.pagination.PageResponse;
 import sn.sopikeur.dto.response.admin.OrderAdminResponseDto;
+import sn.sopikeur.dto.response.admin.OrderPaymentAdminResponseDto;
 import sn.sopikeur.service.OrderAdminService;
+import sn.sopikeur.service.OrderDocumentPdfService;
 
 @RestController
 @RequestMapping("/api/v1/admin/orders")
@@ -21,6 +37,7 @@ import sn.sopikeur.service.OrderAdminService;
 public class OrderAdminController {
 
     private final OrderAdminService orderAdminService;
+    private final OrderDocumentPdfService orderDocumentPdfService;
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
@@ -36,6 +53,12 @@ public class OrderAdminController {
         @RequestParam(required = false) String status
     ) {
         return orderAdminService.list(page, size, status);
+    }
+
+    @GetMapping("/{id}/payments")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    public List<OrderPaymentAdminResponseDto> listPayments(@PathVariable Long id) {
+        return orderAdminService.getPayments(id);
     }
 
     @PostMapping("/{id}/items")
@@ -99,7 +122,30 @@ public class OrderAdminController {
         @PathVariable Long id,
         @RequestBody Map<String, Object> body
     ) {
-        java.math.BigDecimal amountPaid = new java.math.BigDecimal(body.get("amountPaid").toString());
+        BigDecimal amountPaid = new BigDecimal(body.get("amountPaid").toString());
         return orderAdminService.recordPayment(id, amountPaid);
+    }
+
+    @PostMapping("/{id}/issue-invoice")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    public Map<String, String> issueInvoice(@PathVariable Long id) {
+        return Map.of("invoiceNumber", orderAdminService.issueInvoice(id));
+    }
+
+    @GetMapping("/{id}/invoice.pdf")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    public ResponseEntity<byte[]> downloadInvoice(@PathVariable Long id) {
+        OrderAdminService.InvoiceDocumentData document = orderAdminService.getInvoiceDocument(id);
+        byte[] pdf = orderDocumentPdfService.buildInvoicePdf(
+            document.order(),
+            document.payments(),
+            document.paidTotal(),
+            document.dueTotal()
+        );
+        String filename = document.order().getInvoiceNumber() + ".pdf";
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_PDF)
+            .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(filename).build().toString())
+            .body(pdf);
     }
 }
