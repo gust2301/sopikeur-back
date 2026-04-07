@@ -200,8 +200,14 @@ public class OrderTrackingMapper {
     }
 
     private boolean isInstallationServiceLine(OrderItem item) {
-        return item.getLineType() == OrderLineType.SERVICE
-            && item.getServiceType() != null
+        if (item.getLineType() != OrderLineType.SERVICE) {
+            return false;
+        }
+        if (item.getProduct() != null && item.getProduct().getSku() != null
+            && "SRV-POSE".equalsIgnoreCase(item.getProduct().getSku().trim())) {
+            return true;
+        }
+        return item.getServiceType() != null
             && item.getServiceType().getCode() != null
             && "INSTALLATION".equalsIgnoreCase(item.getServiceType().getCode().trim());
     }

@@ -89,12 +89,14 @@ public class AdminProductService {
         Product p = new Product();
         apply(p, dto);
         Product saved = productRepository.save(p);
-        StockItem stock = new StockItem();
-        stock.setProduct(saved);
-        stock.setQuantity(0);
-        stock.setReserved(0);
-        stock.setPreorderAllowed(false);
-        stockItemRepository.save(stock);
+        if (saved.getType() != ProductType.SERVICE) {
+            StockItem stock = new StockItem();
+            stock.setProduct(saved);
+            stock.setQuantity(0);
+            stock.setReserved(0);
+            stock.setPreorderAllowed(false);
+            stockItemRepository.save(stock);
+        }
         return adminProductMapper.toDto(saved);
     }
 

@@ -8,8 +8,9 @@ import lombok.Data;
 
 @Data
 public class AddOrderServiceRequest {
-    @NotNull
     private Long serviceTypeId;
+
+    private Long productId;
 
     @NotNull
     @Min(1)

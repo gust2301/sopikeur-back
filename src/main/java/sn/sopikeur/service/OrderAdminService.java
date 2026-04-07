@@ -31,6 +31,7 @@ import sn.sopikeur.dto.response.admin.OrderAdminResponseDto;
 import sn.sopikeur.dto.response.admin.OrderPaymentAdminResponseDto;
 import sn.sopikeur.entity.auth.AdminUserEntity;
 import sn.sopikeur.entity.catalog.Product;
+import sn.sopikeur.entity.catalog.ProductType;
 import sn.sopikeur.entity.catalog.ServiceTypeEntity;
 import sn.sopikeur.entity.order.OrderEntity;
 import sn.sopikeur.entity.order.OrderItem;
@@ -125,31 +126,29 @@ public class OrderAdminService {
     @Transactional
     public OrderAdminResponseDto addService(Long orderId, AddOrderServiceRequest request) {
         OrderEntity order = findOrderWithItems(orderId);
-        ServiceTypeEntity serviceType = serviceTypeRepository.findById(request.getServiceTypeId())
-            .orElseThrow(() -> new NotFoundException("Type de service introuvable"));
         BigDecimal currentTotal = resolvePersistedTotal(order);
         BigDecimal legacyInstallationFallback = resolveLegacyInstallationFallback(order);
+        Product serviceProduct = resolveServiceProduct(request);
+        ServiceTypeEntity legacyServiceType = resolveLegacyServiceType(request);
 
-        if (!serviceType.isActive()) {
-            throw new IllegalArgumentException("Ce type de service est inactif.");
-        }
         if (request.getQuantity() == null || request.getQuantity() <= 0) {
             throw new IllegalArgumentException("La quantite doit etre superieure a zero.");
         }
         if (request.getUnitPrice() == null || request.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Le prix unitaire doit etre strictement positif.");
         }
-        if (isInstallationService(serviceType) && !resolveInstallationRequested(order)) {
+        if (isInstallationService(serviceProduct, legacyServiceType) && !resolveInstallationRequested(order)) {
             throw new IllegalArgumentException("Impossible d'ajouter un service d'installation si la pose n'est pas demandee.");
         }
 
         OrderItem item = new OrderItem();
         item.setOrder(order);
         item.setLineType(OrderLineType.SERVICE);
-        item.setServiceType(serviceType);
-        item.setDisplayName(serviceType.getName());
-        item.setSkuSnapshot(serviceType.getCode());
-        item.setUnit(trimToNull(serviceType.getUnit()) != null ? trimToNull(serviceType.getUnit()) : "service");
+        item.setProduct(serviceProduct);
+        item.setServiceType(legacyServiceType);
+        item.setDisplayName(serviceProduct.getName());
+        item.setSkuSnapshot(blankFallback(serviceProduct.getSku(), serviceProduct.getSlug()));
+        item.setUnit(trimToNull(serviceProduct.getUnit()) != null ? trimToNull(serviceProduct.getUnit()) : "service");
         item.setQty(request.getQuantity());
         item.setUnitPriceSnapshot(request.getUnitPrice());
         item.setLineTotalSnapshot(request.getUnitPrice().multiply(BigDecimal.valueOf(request.getQuantity())));
@@ -159,7 +158,7 @@ public class OrderAdminService {
         order.getItems().add(item);
         syncDerivedInstallationAmount(order);
         BigDecimal newTotal = currentTotal.add(item.getLineTotalSnapshot());
-        if (isInstallationService(serviceType)) {
+        if (isInstallationService(serviceProduct, legacyServiceType)) {
             newTotal = currentTotal.subtract(legacyInstallationFallback).add(item.getLineTotalSnapshot());
         }
         syncFinancials(order, newTotal, resolvePaidAmount(order.getId()));
@@ -589,16 +588,26 @@ public class OrderAdminService {
 
     private boolean isInstallationServiceLine(OrderItem item) {
         return item.getLineType() == OrderLineType.SERVICE
-            && item.getServiceType() != null
-            && isInstallationService(item.getServiceType());
+            && isInstallationService(item.getProduct(), item.getServiceType());
     }
 
-    private boolean isInstallationService(ServiceTypeEntity serviceType) {
-        return trimToNull(serviceType.getCode()) != null
+    private boolean isInstallationService(Product product, ServiceTypeEntity serviceType) {
+        String productSku = product != null ? trimToNull(product.getSku()) : null;
+        if (productSku != null && "SRV-POSE".equalsIgnoreCase(productSku)) {
+            return true;
+        }
+        return serviceType != null
+            && trimToNull(serviceType.getCode()) != null
             && "INSTALLATION".equalsIgnoreCase(serviceType.getCode().trim());
     }
 
     private OrderAdminResponseDto.OrderLineDto toOrderLineDto(OrderItem item) {
+        String serviceName = item.getServiceType() != null
+            ? item.getServiceType().getName()
+            : ((item.getLineType() == OrderLineType.SERVICE && item.getProduct() != null) ? item.getProduct().getName() : null);
+        String serviceCode = item.getServiceType() != null
+            ? item.getServiceType().getCode()
+            : ((item.getLineType() == OrderLineType.SERVICE && item.getProduct() != null) ? item.getProduct().getSku() : null);
         return OrderAdminResponseDto.OrderLineDto.builder()
             .id(item.getId())
             .lineType((item.getLineType() != null ? item.getLineType() : OrderLineType.PRODUCT).name())
@@ -607,8 +616,8 @@ public class OrderAdminService {
             .code(item.getSkuSnapshot())
             .displayName(resolveLineDisplayName(item))
             .productName(item.getProduct() != null ? item.getProduct().getName() : null)
-            .serviceName(item.getServiceType() != null ? item.getServiceType().getName() : null)
-            .serviceCode(item.getServiceType() != null ? item.getServiceType().getCode() : null)
+            .serviceName(serviceName)
+            .serviceCode(serviceCode)
             .unit(item.getUnit())
             .quantity(item.getQty())
             .unitPrice(item.getUnitPriceSnapshot())
@@ -629,6 +638,53 @@ public class OrderAdminService {
             return item.getServiceType().getName();
         }
         return item.getSkuSnapshot();
+    }
+
+    private Product resolveServiceProduct(AddOrderServiceRequest request) {
+        if (request.getProductId() == null) {
+            if (request.getServiceTypeId() == null) {
+                throw new IllegalArgumentException("Aucun service selectionne.");
+            }
+            ServiceTypeEntity legacyServiceType = serviceTypeRepository.findById(request.getServiceTypeId())
+                .orElseThrow(() -> new NotFoundException("Type de service introuvable"));
+            String sku = mapLegacyServiceSku(legacyServiceType);
+            return productRepository.findBySku(sku)
+                .filter(product -> product.getType() == ProductType.SERVICE)
+                .orElseThrow(() -> new NotFoundException("Produit service introuvable pour " + sku));
+        }
+
+        Product product = productRepository.findById(request.getProductId())
+            .orElseThrow(() -> new NotFoundException("Produit service introuvable"));
+        if (product.getType() != ProductType.SERVICE) {
+            throw new IllegalArgumentException("Le produit selectionne n'est pas un service.");
+        }
+        return product;
+    }
+
+    private ServiceTypeEntity resolveLegacyServiceType(AddOrderServiceRequest request) {
+        if (request.getServiceTypeId() == null) {
+            return null;
+        }
+        return serviceTypeRepository.findById(request.getServiceTypeId()).orElse(null);
+    }
+
+    private String mapLegacyServiceSku(ServiceTypeEntity serviceType) {
+        String normalizedCode = trimToNull(serviceType.getCode());
+        if (normalizedCode == null) {
+            throw new IllegalArgumentException("Type de service introuvable.");
+        }
+        if ("INSTALLATION".equalsIgnoreCase(normalizedCode)) {
+            return "SRV-POSE";
+        }
+        if ("DELIVERY".equalsIgnoreCase(normalizedCode) || "LIVRAISON".equalsIgnoreCase(normalizedCode)) {
+            return "SRV-LIVRAISON";
+        }
+        throw new NotFoundException("Aucun produit service ne correspond au type " + normalizedCode);
+    }
+
+    private String blankFallback(String value, String fallback) {
+        String trimmedValue = trimToNull(value);
+        return trimmedValue != null ? trimmedValue : fallback;
     }
 
     private String buildTrackingUrl(String publicId) {
