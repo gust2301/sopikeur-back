@@ -29,6 +29,9 @@ public class OrderPaymentEntity extends Auditable {
     @JoinColumn(name = "order_id", nullable = false)
     private OrderEntity order;
 
+    @Column(name = "receipt_number")
+    private String receiptNumber;
+
     @Column(name = "amount", nullable = false)
     private BigDecimal amount;
 
@@ -40,4 +43,7 @@ public class OrderPaymentEntity extends Auditable {
 
     @Column(name = "created_by")
     private String createdBy;
+
+    @Column(name = "created_by_admin_user_id")
+    private Long createdByAdminUserId;
 }

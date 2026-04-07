@@ -22,8 +22,15 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
     @EntityGraph(attributePaths = {"items", "items.product"})
     Optional<OrderEntity> findByPublicId(String publicId);
 
+    @EntityGraph(attributePaths = {"items", "items.product"})
+    Optional<OrderEntity> findDetailedById(Long id);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<OrderEntity> findWithLockById(Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"items", "items.product"})
+    Optional<OrderEntity> findDetailedWithLockById(Long id);
 
     @Query("SELECT COALESCE(SUM(o.amountPaid), 0) FROM OrderEntity o")
     BigDecimal sumPaidAmount();

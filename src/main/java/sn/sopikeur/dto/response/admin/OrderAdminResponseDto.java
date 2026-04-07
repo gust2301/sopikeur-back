@@ -1,6 +1,8 @@
 package sn.sopikeur.dto.response.admin;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.Builder;
@@ -10,78 +12,80 @@ import lombok.Data;
 @Builder
 public class OrderAdminResponseDto {
 
-    private Long   id;
+    private Long id;
     private String publicId;
     private String orderNumber;
-    /** Alias = orderNumber sinon publicId — conservé pour la vue liste */
+    private String invoiceNumber;
+    private LocalDateTime invoiceIssuedAt;
     private String reference;
     private String status;
 
-    private CustomerDto   customer;
-    private DeliveryDto   delivery;
+    private CustomerDto customer;
+    private DeliveryDto delivery;
     private List<ItemDto> items;
-    private AmountsDto    amounts;
+    private AmountsDto amounts;
     private TimestampsDto timestamps;
 
-    // ── Champs plats conservés pour rétrocompat liste ────────────────────────
-    private String     customerName;
-    private String     customerEmail;
-    private String     customerPhone;
+    private String customerName;
+    private String customerEmail;
+    private String customerPhone;
     private BigDecimal totalAmount;
     private BigDecimal amountPaid;
     private BigDecimal amountDue;
     private BigDecimal depositAmount;
     private BigDecimal installationAmount;
-    private String     paymentStatus;
-    private String     paymentPlan;
-    private String     paymentMethodSelected;
-    private String     createdAt;
-    private String     trackingUrl;
+    private String paymentStatus;
+    private String paymentPlan;
+    private String paymentMethodSelected;
+    private String createdAt;
+    private String trackingUrl;
+    private List<OrderPaymentAdminResponseDto> payments;
 
-    // ── Nested DTOs ──────────────────────────────────────────────────────────
-
-    @Data @Builder
+    @Data
+    @Builder
     public static class CustomerDto {
         private String fullName;
         private String phone;
         private String email;
     }
 
-    @Data @Builder
+    @Data
+    @Builder
     public static class DeliveryDto {
-        private String  cityZone;
-        private String  city;
-        private String  zone;
-        private String  address;
+        private String cityZone;
+        private String city;
+        private String zone;
+        private String address;
         private boolean needsInstallation;
-        private String  note;
-        private java.time.LocalDate expectedDeliveryDate;
-        private java.time.LocalDate deliveryEtaDate;
-        private String  deliveryNote;
+        private String note;
+        private LocalDate expectedDeliveryDate;
+        private LocalDate deliveryEtaDate;
+        private String deliveryNote;
         private Boolean installationRequested;
-        private java.time.LocalDate installationDate;
-        private java.time.LocalDate installationEtaDate;
-        private String  installationNote;
+        private LocalDate installationDate;
+        private LocalDate installationEtaDate;
+        private String installationNote;
         private BigDecimal installationAmount;
-        private java.time.LocalDateTime deliveredAt;
-        private java.time.LocalDateTime installedAt;
-        private String  internalNote;
-        /** Contenu brut du champ JSON delivery_json */
-        private String  deliveryJson;
+        private LocalDateTime deliveredAt;
+        private LocalDateTime installedAt;
+        private String internalNote;
+        private String deliveryJson;
     }
 
-    @Data @Builder
+    @Data
+    @Builder
     public static class ItemDto {
-        private Long       productId;
-        private String     productName;
-        private String     sku;
-        private String     unit;
-        private int        quantity;
+        private Long productId;
+        private String productName;
+        private String sku;
+        private String unit;
+        private int quantity;
         private BigDecimal unitPrice;
         private BigDecimal lineTotal;
     }
 
-    @Data @Builder
+    @Data
+    @Builder
     public static class AmountsDto {
         private BigDecimal totalAmount;
         private BigDecimal amountPaid;
@@ -90,7 +94,8 @@ public class OrderAdminResponseDto {
         private BigDecimal installationAmount;
     }
 
-    @Data @Builder
+    @Data
+    @Builder
     public static class TimestampsDto {
         private OffsetDateTime createdAt;
         private OffsetDateTime updatedAt;
