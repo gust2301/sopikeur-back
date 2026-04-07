@@ -5,10 +5,17 @@
   <style>
     body { font-family: Arial, sans-serif; color: #1f2937; font-size: 12px; margin: 24px; }
     h1, h2, h3 { margin: 0; }
-    .header { border-bottom: 2px solid #111827; padding-bottom: 12px; margin-bottom: 18px; }
-    .muted { color: #6b7280; }
-    .grid { width: 100%; margin-bottom: 18px; }
-    .grid td { vertical-align: top; width: 50%; padding-right: 12px; }
+    .header { background: #111827; color: #ffffff; border-radius: 12px; padding: 18px 20px; margin-bottom: 18px; }
+    .header-table { width: 100%; border-collapse: collapse; }
+    .header-brand { width: 220px; vertical-align: middle; }
+    .header-brand img { height: 40px; display: block; }
+    .header-meta { text-align: right; vertical-align: middle; }
+    .header-title { font-size: 24px; font-weight: bold; }
+    .grid { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+    .grid td { vertical-align: top; padding: 0; }
+    .grid__col { width: 50%; }
+    .grid__col--right { text-align: right; }
+    .grid__col--right div { text-align: right; }
     .section { margin-bottom: 18px; }
     .table { width: 100%; border-collapse: collapse; margin-top: 8px; }
     .table th, .table td { border: 1px solid #d1d5db; padding: 8px; }
@@ -22,19 +29,27 @@
 </head>
 <body>
   <div class="header">
-    <h1>SOPIKËR</h1>
-    <div class="muted">Facture</div>
+    <table class="header-table">
+      <tr>
+        <td class="header-brand">
+          <img src="{{logoUrl}}" alt="SOPIKËR" />
+        </td>
+        <td class="header-meta">
+          <div class="header-title">Facture</div>
+        </td>
+      </tr>
+    </table>
   </div>
 
   <table class="grid">
     <tr>
-      <td>
+      <td class="grid__col">
         <h3>Facture</h3>
         <div>Numero: {{invoiceNumber}}</div>
         <div>Date d'emission: {{invoiceIssuedAt}}</div>
         <div>Reference commande: {{orderReference}}</div>
       </td>
-      <td>
+      <td class="grid__col grid__col--right">
         <h3>Client</h3>
         <div>{{customerName}}</div>
         <div>{{customerPhone}}</div>
@@ -90,9 +105,6 @@
     <h3>Mentions</h3>
     <div>Livraison prevue: {{deliveryDate}}</div>
     <div>Installation demandee: {{installation}}</div>
-    <div>Note livraison: {{deliveryNote}}</div>
-    <div>Note installation: {{installationNote}}</div>
-    <div>Note interne: {{internalNote}}</div>
   </div>
 
   <div class="footer">

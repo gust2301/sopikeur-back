@@ -21,12 +21,14 @@ import sn.sopikeur.entity.order.OrderItem;
 @RequiredArgsConstructor
 public class OrderDocumentPdfService {
 
+    private static final String LOGO_URL = "https://assets.sopikeur.sn/logos/sopiker-logo-dark-h32.png";
     private static final DateTimeFormatter DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public byte[] buildInvoicePdf(OrderEntity order, List<OrderPaymentAdminResponseDto> payments, BigDecimal paidTotal, BigDecimal dueTotal) {
         String template = loadTemplate("templates/invoice.html");
         String html = template
+            .replace("{{logoUrl}}", escape(LOGO_URL))
             .replace("{{invoiceNumber}}", escape(order.getInvoiceNumber()))
             .replace("{{invoiceIssuedAt}}", escape(formatDateTime(order.getInvoiceIssuedAt() != null ? order.getInvoiceIssuedAt().atOffset(OffsetDateTime.now().getOffset()) : null)))
             .replace("{{orderReference}}", escape(resolveReference(order)))
@@ -57,7 +59,7 @@ public class OrderDocumentPdfService {
             .replace("{{paymentDate}}", escape(formatDateTime(payment.createdAt())))
             .replace("{{orderReference}}", escape(resolveReference(order)))
             .replace("{{customerName}}", escape(order.getFullName()))
-            .replace("{{paymentMethod}}", escape(blankFallback(payment.method(), "Non precisee")))
+            .replace("{{paymentMethod}}", escape(displayMethod(payment.method())))
             .replace("{{paymentAmount}}", money(payment.amount()))
             .replace("{{paidTotal}}", money(payment.paidTotal()))
             .replace("{{dueTotal}}", money(payment.dueTotal()))
@@ -116,11 +118,18 @@ public class OrderDocumentPdfService {
             rows.append("<tr>")
                 .append("<td>").append(escape(formatDateTime(payment.createdAt()))).append("</td>")
                 .append("<td>").append(escape(blankFallback(payment.receiptNumber(), "N/A"))).append("</td>")
-                .append("<td>").append(escape(blankFallback(payment.method(), "N/A"))).append("</td>")
+                .append("<td>").append(escape(displayMethod(payment.method()))).append("</td>")
                 .append("<td class=\"text-right\">").append(money(payment.amount())).append("</td>")
                 .append("</tr>");
         }
         return rows.toString();
+    }
+
+    private String displayMethod(String method) {
+        if (method == null || method.isBlank() || "NONE".equalsIgnoreCase(method)) {
+            return "N/A";
+        }
+        return method;
     }
 
     private String resolveReference(OrderEntity order) {
