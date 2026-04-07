@@ -20,6 +20,7 @@ import sn.sopikeur.entity.leads.item.QuoteRequestItem;
 import sn.sopikeur.entity.leads.item.QuoteRequestPack;
 import sn.sopikeur.entity.order.OrderEntity;
 import sn.sopikeur.entity.order.OrderItem;
+import sn.sopikeur.entity.order.OrderLineType;
 import sn.sopikeur.entity.order.OrderStatus;
 import sn.sopikeur.entity.stock.StockItem;
 import sn.sopikeur.repo.*;
@@ -169,7 +170,9 @@ public class CommerceService {
 
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(saved);
+            orderItem.setLineType(OrderLineType.PRODUCT);
             orderItem.setProduct(product);
+            orderItem.setDisplayName(product.getName());
             orderItem.setSkuSnapshot(product.getSku());
             orderItem.setUnit(item.getUnit().name());
             orderItem.setQty(qty);

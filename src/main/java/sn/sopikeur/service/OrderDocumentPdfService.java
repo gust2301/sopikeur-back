@@ -44,9 +44,6 @@ public class OrderDocumentPdfService {
             .replace("{{paidAmount}}", money(paidTotal))
             .replace("{{dueAmount}}", money(dueTotal))
             .replace("{{installationAmount}}", money(order.getInstallationAmount()))
-            .replace("{{deliveryNote}}", escape(blankFallback(order.getDeliveryNote(), "Aucune")))
-            .replace("{{installationNote}}", escape(blankFallback(order.getInstallationNote(), "Aucune")))
-            .replace("{{internalNote}}", escape(blankFallback(order.getInternalNote(), "Aucune")))
             .replace("{{generatedAt}}", escape(formatDateTime(OffsetDateTime.now())));
 
         return render(html);
@@ -98,7 +95,7 @@ public class OrderDocumentPdfService {
         StringBuilder rows = new StringBuilder();
         for (OrderItem item : items) {
             rows.append("<tr>")
-                .append("<td>").append(escape(item.getProduct() != null ? item.getProduct().getName() : null)).append("</td>")
+                .append("<td>").append(escape(resolveItemName(item))).append("</td>")
                 .append("<td>").append(escape(item.getSkuSnapshot())).append("</td>")
                 .append("<td>").append(escape(item.getUnit())).append("</td>")
                 .append("<td class=\"text-right\">").append(item.getQty()).append("</td>")
@@ -134,6 +131,19 @@ public class OrderDocumentPdfService {
 
     private String resolveReference(OrderEntity order) {
         return blankFallback(order.getOrderNumber(), order.getPublicId());
+    }
+
+    private String resolveItemName(OrderItem item) {
+        if (item.getDisplayName() != null && !item.getDisplayName().isBlank()) {
+            return item.getDisplayName();
+        }
+        if (item.getProduct() != null && item.getProduct().getName() != null && !item.getProduct().getName().isBlank()) {
+            return item.getProduct().getName();
+        }
+        if (item.getServiceType() != null && item.getServiceType().getName() != null && !item.getServiceType().getName().isBlank()) {
+            return item.getServiceType().getName();
+        }
+        return item.getSkuSnapshot();
     }
 
     private String blankFallback(String value, String fallback) {

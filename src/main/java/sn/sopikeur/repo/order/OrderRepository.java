@@ -19,17 +19,17 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
     Page<OrderEntity> findByStatus(OrderStatus status, Pageable pageable);
     long countByStatus(OrderStatus status);
 
-    @EntityGraph(attributePaths = {"items", "items.product"})
+    @EntityGraph(attributePaths = {"items", "items.product", "items.serviceType"})
     Optional<OrderEntity> findByPublicId(String publicId);
 
-    @EntityGraph(attributePaths = {"items", "items.product"})
+    @EntityGraph(attributePaths = {"items", "items.product", "items.serviceType"})
     Optional<OrderEntity> findDetailedById(Long id);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<OrderEntity> findWithLockById(Long id);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @EntityGraph(attributePaths = {"items", "items.product"})
+    @EntityGraph(attributePaths = {"items", "items.product", "items.serviceType"})
     Optional<OrderEntity> findDetailedWithLockById(Long id);
 
     @Query("SELECT COALESCE(SUM(o.amountPaid), 0) FROM OrderEntity o")

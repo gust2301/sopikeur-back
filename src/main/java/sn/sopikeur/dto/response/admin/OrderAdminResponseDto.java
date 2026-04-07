@@ -23,6 +23,7 @@ public class OrderAdminResponseDto {
     private CustomerDto customer;
     private DeliveryDto delivery;
     private List<ItemDto> items;
+    private List<OrderLineDto> orderLines;
     private AmountsDto amounts;
     private TimestampsDto timestamps;
 
@@ -82,6 +83,25 @@ public class OrderAdminResponseDto {
         private int quantity;
         private BigDecimal unitPrice;
         private BigDecimal lineTotal;
+    }
+
+    @Data
+    @Builder
+    public static class OrderLineDto {
+        private Long id;
+        private String lineType;
+        private Long productId;
+        private Long serviceTypeId;
+        private String code;
+        private String displayName;
+        private String productName;
+        private String serviceName;
+        private String serviceCode;
+        private String unit;
+        private int quantity;
+        private BigDecimal unitPrice;
+        private BigDecimal lineTotal;
+        private String note;
     }
 
     @Data

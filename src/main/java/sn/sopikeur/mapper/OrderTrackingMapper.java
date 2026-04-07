@@ -15,6 +15,7 @@ import sn.sopikeur.dto.response.publicapi.order.OrderTrackingResponseDto;
 import sn.sopikeur.dto.response.publicapi.order.PublicOrderTrackingResponseDto;
 import sn.sopikeur.entity.order.OrderEntity;
 import sn.sopikeur.entity.order.OrderItem;
+import sn.sopikeur.entity.order.OrderLineType;
 import sn.sopikeur.entity.order.OrderStatus;
 
 @Component
@@ -99,7 +100,7 @@ public class OrderTrackingMapper {
                 .total(total)
                 .paid(paid)
                 .due(due)
-                .installationAmount(order.getInstallationAmount())
+                .installationAmount(resolveInstallationAmount(order))
                 .paymentPlan(mapPaymentPlan(order))
                 .paymentMethod(mapPaymentMethod(order.getPaymentMethodSelected()))
                 .build())
@@ -110,7 +111,7 @@ public class OrderTrackingMapper {
     private OrderTrackingResponseDto.ItemDto toLegacyItemDto(OrderItem item) {
         return OrderTrackingResponseDto.ItemDto.builder()
             .sku(item.getSkuSnapshot())
-            .name(item.getProduct() != null ? item.getProduct().getName() : item.getSkuSnapshot())
+            .name(resolveItemName(item))
             .unit(item.getUnit())
             .quantity(item.getQty())
             .unitPrice(item.getUnitPriceSnapshot())
@@ -121,7 +122,7 @@ public class OrderTrackingMapper {
     private PublicOrderTrackingResponseDto.ItemDto toTrackingItemDto(OrderItem item) {
         return PublicOrderTrackingResponseDto.ItemDto.builder()
             .sku(item.getSkuSnapshot())
-            .name(item.getProduct() != null ? item.getProduct().getName() : item.getSkuSnapshot())
+            .name(resolveItemName(item))
             .unit(item.getUnit())
             .quantity(item.getQty())
             .unitPrice(item.getUnitPriceSnapshot())
@@ -171,9 +172,51 @@ public class OrderTrackingMapper {
         if (order.getAmountTotal() != null) {
             return order.getAmountTotal();
         }
-        return order.getItems().stream()
+        BigDecimal itemsTotal = order.getItems().stream()
             .map(OrderItem::getLineTotalSnapshot)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return itemsTotal.add(resolveLegacyInstallationFallback(order));
+    }
+
+    private BigDecimal resolveInstallationAmount(OrderEntity order) {
+        if (!resolveInstallationRequested(order)) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal serviceAmount = order.getItems().stream()
+            .filter(this::isInstallationServiceLine)
+            .map(OrderItem::getLineTotalSnapshot)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (serviceAmount.compareTo(BigDecimal.ZERO) > 0) {
+            return serviceAmount;
+        }
+        return order.getInstallationAmount() != null ? order.getInstallationAmount() : BigDecimal.ZERO;
+    }
+
+    private BigDecimal resolveLegacyInstallationFallback(OrderEntity order) {
+        if (order.getItems().stream().anyMatch(this::isInstallationServiceLine) || !resolveInstallationRequested(order)) {
+            return BigDecimal.ZERO;
+        }
+        return order.getInstallationAmount() != null ? order.getInstallationAmount() : BigDecimal.ZERO;
+    }
+
+    private boolean isInstallationServiceLine(OrderItem item) {
+        return item.getLineType() == OrderLineType.SERVICE
+            && item.getServiceType() != null
+            && item.getServiceType().getCode() != null
+            && "INSTALLATION".equalsIgnoreCase(item.getServiceType().getCode().trim());
+    }
+
+    private String resolveItemName(OrderItem item) {
+        if (item.getDisplayName() != null && !item.getDisplayName().isBlank()) {
+            return item.getDisplayName();
+        }
+        if (item.getProduct() != null && item.getProduct().getName() != null && !item.getProduct().getName().isBlank()) {
+            return item.getProduct().getName();
+        }
+        if (item.getServiceType() != null && item.getServiceType().getName() != null && !item.getServiceType().getName().isBlank()) {
+            return item.getServiceType().getName();
+        }
+        return item.getSkuSnapshot();
     }
 
     private String mapPaymentPlan(OrderEntity order) {

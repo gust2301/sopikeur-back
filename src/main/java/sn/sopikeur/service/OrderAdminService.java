@@ -22,6 +22,7 @@ import sn.sopikeur.common.error.NotFoundException;
 import sn.sopikeur.common.pagination.PageResponse;
 import sn.sopikeur.config.TrackingProperties;
 import sn.sopikeur.dto.request.admin.AddOrderItemRequest;
+import sn.sopikeur.dto.request.admin.AddOrderServiceRequest;
 import sn.sopikeur.dto.request.admin.MarkOrderDeliveredRequest;
 import sn.sopikeur.dto.request.admin.MarkOrderInstalledRequest;
 import sn.sopikeur.dto.request.admin.UpdateOrderDeliveryRequest;
@@ -30,13 +31,16 @@ import sn.sopikeur.dto.response.admin.OrderAdminResponseDto;
 import sn.sopikeur.dto.response.admin.OrderPaymentAdminResponseDto;
 import sn.sopikeur.entity.auth.AdminUserEntity;
 import sn.sopikeur.entity.catalog.Product;
+import sn.sopikeur.entity.catalog.ServiceTypeEntity;
 import sn.sopikeur.entity.order.OrderEntity;
 import sn.sopikeur.entity.order.OrderItem;
+import sn.sopikeur.entity.order.OrderLineType;
 import sn.sopikeur.entity.order.OrderPaymentEntity;
 import sn.sopikeur.entity.order.OrderStatus;
 import sn.sopikeur.entity.order.PaymentStatus;
 import sn.sopikeur.repo.AdminUserRepository;
 import sn.sopikeur.repo.ProductRepository;
+import sn.sopikeur.repo.ServiceTypeRepository;
 import sn.sopikeur.repo.order.OrderItemRepository;
 import sn.sopikeur.repo.order.OrderPaymentRepository;
 import sn.sopikeur.repo.order.OrderRepository;
@@ -49,6 +53,7 @@ public class OrderAdminService {
     private final OrderItemRepository orderItemRepository;
     private final OrderPaymentRepository orderPaymentRepository;
     private final ProductRepository productRepository;
+    private final ServiceTypeRepository serviceTypeRepository;
     private final AdminUserRepository adminUserRepository;
     private final ObjectMapper objectMapper;
     private final TrackingProperties trackingProperties;
@@ -93,13 +98,16 @@ public class OrderAdminService {
         OrderEntity order = findOrderWithItems(orderId);
         Product product = productRepository.findById(request.getProductId())
             .orElseThrow(() -> new NotFoundException("Produit introuvable"));
+        BigDecimal currentTotal = resolvePersistedTotal(order);
 
         BigDecimal unitPrice = product.getPrice();
         BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(request.getQuantity()));
 
         OrderItem item = new OrderItem();
         item.setOrder(order);
+        item.setLineType(OrderLineType.PRODUCT);
         item.setProduct(product);
+        item.setDisplayName(product.getName());
         item.setSkuSnapshot(product.getSku() != null ? product.getSku() : product.getSlug());
         item.setUnit(product.getUnit() != null ? product.getUnit() : "piece");
         item.setQty(request.getQuantity());
@@ -108,8 +116,53 @@ public class OrderAdminService {
         orderItemRepository.save(item);
 
         order.getItems().add(item);
-        BigDecimal total = resolvePersistedTotal(order).add(lineTotal);
-        syncFinancials(order, total, resolvePaidAmount(order.getId()));
+        syncFinancials(order, currentTotal.add(lineTotal), resolvePaidAmount(order.getId()));
+        orderRepository.save(order);
+
+        return toDto(order, true);
+    }
+
+    @Transactional
+    public OrderAdminResponseDto addService(Long orderId, AddOrderServiceRequest request) {
+        OrderEntity order = findOrderWithItems(orderId);
+        ServiceTypeEntity serviceType = serviceTypeRepository.findById(request.getServiceTypeId())
+            .orElseThrow(() -> new NotFoundException("Type de service introuvable"));
+        BigDecimal currentTotal = resolvePersistedTotal(order);
+        BigDecimal legacyInstallationFallback = resolveLegacyInstallationFallback(order);
+
+        if (!serviceType.isActive()) {
+            throw new IllegalArgumentException("Ce type de service est inactif.");
+        }
+        if (request.getQuantity() == null || request.getQuantity() <= 0) {
+            throw new IllegalArgumentException("La quantite doit etre superieure a zero.");
+        }
+        if (request.getUnitPrice() == null || request.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Le prix unitaire doit etre strictement positif.");
+        }
+        if (isInstallationService(serviceType) && !resolveInstallationRequested(order)) {
+            throw new IllegalArgumentException("Impossible d'ajouter un service d'installation si la pose n'est pas demandee.");
+        }
+
+        OrderItem item = new OrderItem();
+        item.setOrder(order);
+        item.setLineType(OrderLineType.SERVICE);
+        item.setServiceType(serviceType);
+        item.setDisplayName(serviceType.getName());
+        item.setSkuSnapshot(serviceType.getCode());
+        item.setUnit(trimToNull(serviceType.getUnit()) != null ? trimToNull(serviceType.getUnit()) : "service");
+        item.setQty(request.getQuantity());
+        item.setUnitPriceSnapshot(request.getUnitPrice());
+        item.setLineTotalSnapshot(request.getUnitPrice().multiply(BigDecimal.valueOf(request.getQuantity())));
+        item.setLineNote(trimToNull(request.getNote()));
+        orderItemRepository.save(item);
+
+        order.getItems().add(item);
+        syncDerivedInstallationAmount(order);
+        BigDecimal newTotal = currentTotal.add(item.getLineTotalSnapshot());
+        if (isInstallationService(serviceType)) {
+            newTotal = currentTotal.subtract(legacyInstallationFallback).add(item.getLineTotalSnapshot());
+        }
+        syncFinancials(order, newTotal, resolvePaidAmount(order.getId()));
         orderRepository.save(order);
 
         return toDto(order, true);
@@ -125,8 +178,6 @@ public class OrderAdminService {
     @Transactional
     public OrderAdminResponseDto updateDetails(Long id, UpdateOrderDetailsRequest request) {
         OrderEntity order = findOrder(id);
-        BigDecimal previousTotal = resolvePersistedTotal(order);
-        BigDecimal previousInstallationAmount = resolveCurrentInstallationAmount(order);
 
         order.setFullName(trimToNull(request.getFullName()));
         order.setPhone(trimToNull(request.getPhone()));
@@ -138,13 +189,10 @@ public class OrderAdminService {
         applyInstallationRequested(order, request.getInstallationRequested());
         applyInstallationEta(order, request.getInstallationEtaDate() != null ? request.getInstallationEtaDate() : request.getInstallationDate());
         order.setInstallationNote(trimToNull(request.getInstallationNote()));
-        applyInstallationAmount(order, request.getInstallationAmount());
+        applyLegacyInstallationAmount(order, request.getInstallationAmount());
         order.setInternalNote(trimToNull(request.getInternalNote()));
-        syncFinancials(
-            order,
-            previousTotal.subtract(previousInstallationAmount).max(BigDecimal.ZERO).add(resolveCurrentInstallationAmount(order)),
-            resolvePaidAmount(order.getId())
-        );
+        syncDerivedInstallationAmount(order);
+        syncFinancials(order, resolvePersistedTotal(order), resolvePaidAmount(order.getId()));
 
         return toDto(orderRepository.save(order), true);
     }
@@ -152,8 +200,6 @@ public class OrderAdminService {
     @Transactional
     public OrderAdminResponseDto updateDelivery(Long id, UpdateOrderDeliveryRequest request) {
         OrderEntity order = findOrder(id);
-        BigDecimal previousTotal = resolvePersistedTotal(order);
-        BigDecimal previousInstallationAmount = resolveCurrentInstallationAmount(order);
 
         applyDeliveryFields(order, request.getCityZone(), request.getDeliveryCity(), request.getDeliveryZone(), request.getDeliveryAddress());
         applyDeliveryEta(order, request.getDeliveryEtaDate());
@@ -161,13 +207,10 @@ public class OrderAdminService {
         applyInstallationRequested(order, request.getInstallationRequested());
         applyInstallationEta(order, request.getInstallationEtaDate());
         order.setInstallationNote(trimToNull(request.getInstallationNote()));
-        applyInstallationAmount(order, request.getInstallationAmount());
+        applyLegacyInstallationAmount(order, request.getInstallationAmount());
         order.setInternalNote(trimToNull(request.getInternalNote()));
-        syncFinancials(
-            order,
-            previousTotal.subtract(previousInstallationAmount).max(BigDecimal.ZERO).add(resolveCurrentInstallationAmount(order)),
-            resolvePaidAmount(order.getId())
-        );
+        syncDerivedInstallationAmount(order);
+        syncFinancials(order, resolvePersistedTotal(order), resolvePaidAmount(order.getId()));
 
         return toDto(orderRepository.save(order), true);
     }
@@ -252,6 +295,7 @@ public class OrderAdminService {
         OrderEntity order = orderRepository.findDetailedWithLockById(orderId)
             .orElseThrow(() -> new NotFoundException("Commande introuvable"));
         ensureInvoiceIssued(order);
+        syncDerivedInstallationAmount(order);
         syncFinancials(order, resolvePersistedTotal(order), resolvePaidAmount(order.getId()));
         orderRepository.save(order);
         List<OrderPaymentAdminResponseDto> payments = mapPayments(
@@ -320,17 +364,22 @@ public class OrderAdminService {
         boolean installationRequested = resolveInstallationRequested(order);
         BigDecimal paidAmount = includePayments || order.getAmountPaid() != null ? resolvePaidAmount(order.getId()) : order.getAmountPaid();
         BigDecimal dueAmount = apiTotalAmount.subtract(paidAmount != null ? paidAmount : BigDecimal.ZERO).max(BigDecimal.ZERO);
+        BigDecimal installationAmount = resolveDerivedInstallationAmount(order);
 
         List<OrderAdminResponseDto.ItemDto> items = order.getItems().stream()
+            .filter(i -> i.getLineType() == null || i.getLineType() == OrderLineType.PRODUCT)
             .map(i -> OrderAdminResponseDto.ItemDto.builder()
-                .productId(i.getProduct().getId())
-                .productName(i.getProduct().getName())
+                .productId(i.getProduct() != null ? i.getProduct().getId() : null)
+                .productName(resolveLineDisplayName(i))
                 .sku(i.getSkuSnapshot())
                 .unit(i.getUnit())
                 .quantity(i.getQty())
                 .unitPrice(i.getUnitPriceSnapshot())
                 .lineTotal(i.getLineTotalSnapshot())
                 .build())
+            .toList();
+        List<OrderAdminResponseDto.OrderLineDto> orderLines = order.getItems().stream()
+            .map(this::toOrderLineDto)
             .toList();
 
         List<OrderPaymentAdminResponseDto> payments = includePayments
@@ -369,25 +418,26 @@ public class OrderAdminService {
                 .installationDate(resolveInstallationEta(order))
                 .installationEtaDate(resolveInstallationEta(order))
                 .installationNote(order.getInstallationNote())
-                .installationAmount(order.getInstallationAmount())
+                .installationAmount(installationAmount)
                 .deliveredAt(order.getDeliveredAt())
                 .installedAt(order.getInstalledAt())
                 .internalNote(order.getInternalNote())
                 .deliveryJson(order.getDeliveryJson())
                 .build())
             .items(items)
+            .orderLines(orderLines)
             .amounts(OrderAdminResponseDto.AmountsDto.builder()
                 .totalAmount(apiTotalAmount)
                 .amountPaid(paidAmount)
                 .amountDue(dueAmount)
                 .depositAmount(order.getDepositAmount())
-                .installationAmount(order.getInstallationAmount())
+                .installationAmount(installationAmount)
                 .build())
             .totalAmount(apiTotalAmount)
             .amountPaid(paidAmount)
             .amountDue(dueAmount)
             .depositAmount(order.getDepositAmount())
-            .installationAmount(order.getInstallationAmount())
+            .installationAmount(installationAmount)
             .paymentStatus(resolvePaymentStatus(order, paidAmount, apiTotalAmount))
             .paymentPlan(order.getPaymentPlan() != null ? order.getPaymentPlan().name() : null)
             .paymentMethodSelected(order.getPaymentMethodSelected())
@@ -452,18 +502,12 @@ public class OrderAdminService {
             order.setInstallationEtaDate(null);
             order.setInstallationDate(null);
             order.setInstallationNote(null);
-            order.setInstallationAmount(null);
             order.setInstalledAt(null);
         }
     }
 
-    private void applyInstallationAmount(OrderEntity order, BigDecimal amount) {
-        if (!resolveInstallationRequested(order)) {
-            order.setInstallationAmount(null);
-            return;
-        }
+    private void applyLegacyInstallationAmount(OrderEntity order, BigDecimal amount) {
         if (amount == null) {
-            order.setInstallationAmount(null);
             return;
         }
         if (amount.compareTo(BigDecimal.ZERO) < 0) {
@@ -490,17 +534,11 @@ public class OrderAdminService {
             .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private BigDecimal resolveCurrentInstallationAmount(OrderEntity order) {
-        return resolveInstallationRequested(order) && order.getInstallationAmount() != null
-            ? order.getInstallationAmount()
-            : BigDecimal.ZERO;
-    }
-
     private BigDecimal resolvePersistedTotal(OrderEntity order) {
         if (order.getAmountTotal() != null) {
             return order.getAmountTotal();
         }
-        return computeItemsTotal(order).add(resolveCurrentInstallationAmount(order));
+        return computeItemsTotal(order).add(resolveLegacyInstallationFallback(order));
     }
 
     private BigDecimal resolvePaidAmount(Long orderId) {
@@ -513,6 +551,84 @@ public class OrderAdminService {
         order.setAmountPaid(safePaid);
         order.setAmountDue(total.subtract(safePaid).max(BigDecimal.ZERO));
         order.setPaymentStatus(resolvePaymentStatusEnum(safePaid, total));
+    }
+
+    private BigDecimal resolveLegacyInstallationFallback(OrderEntity order) {
+        if (!resolveInstallationRequested(order) || hasInstallationServiceLine(order)) {
+            return BigDecimal.ZERO;
+        }
+        return order.getInstallationAmount() != null ? order.getInstallationAmount() : BigDecimal.ZERO;
+    }
+
+    private BigDecimal resolveDerivedInstallationAmount(OrderEntity order) {
+        if (!resolveInstallationRequested(order)) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal serviceAmount = order.getItems().stream()
+            .filter(this::isInstallationServiceLine)
+            .map(OrderItem::getLineTotalSnapshot)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (serviceAmount.compareTo(BigDecimal.ZERO) > 0) {
+            return serviceAmount;
+        }
+        return order.getInstallationAmount() != null ? order.getInstallationAmount() : BigDecimal.ZERO;
+    }
+
+    private void syncDerivedInstallationAmount(OrderEntity order) {
+        if (!resolveInstallationRequested(order)) {
+            order.setInstallationAmount(null);
+            return;
+        }
+        BigDecimal derivedInstallationAmount = resolveDerivedInstallationAmount(order);
+        order.setInstallationAmount(derivedInstallationAmount.compareTo(BigDecimal.ZERO) > 0 ? derivedInstallationAmount : null);
+    }
+
+    private boolean hasInstallationServiceLine(OrderEntity order) {
+        return order.getItems().stream().anyMatch(this::isInstallationServiceLine);
+    }
+
+    private boolean isInstallationServiceLine(OrderItem item) {
+        return item.getLineType() == OrderLineType.SERVICE
+            && item.getServiceType() != null
+            && isInstallationService(item.getServiceType());
+    }
+
+    private boolean isInstallationService(ServiceTypeEntity serviceType) {
+        return trimToNull(serviceType.getCode()) != null
+            && "INSTALLATION".equalsIgnoreCase(serviceType.getCode().trim());
+    }
+
+    private OrderAdminResponseDto.OrderLineDto toOrderLineDto(OrderItem item) {
+        return OrderAdminResponseDto.OrderLineDto.builder()
+            .id(item.getId())
+            .lineType((item.getLineType() != null ? item.getLineType() : OrderLineType.PRODUCT).name())
+            .productId(item.getProduct() != null ? item.getProduct().getId() : null)
+            .serviceTypeId(item.getServiceType() != null ? item.getServiceType().getId() : null)
+            .code(item.getSkuSnapshot())
+            .displayName(resolveLineDisplayName(item))
+            .productName(item.getProduct() != null ? item.getProduct().getName() : null)
+            .serviceName(item.getServiceType() != null ? item.getServiceType().getName() : null)
+            .serviceCode(item.getServiceType() != null ? item.getServiceType().getCode() : null)
+            .unit(item.getUnit())
+            .quantity(item.getQty())
+            .unitPrice(item.getUnitPriceSnapshot())
+            .lineTotal(item.getLineTotalSnapshot())
+            .note(item.getLineNote())
+            .build();
+    }
+
+    private String resolveLineDisplayName(OrderItem item) {
+        String displayName = trimToNull(item.getDisplayName());
+        if (displayName != null) {
+            return displayName;
+        }
+        if (item.getProduct() != null && trimToNull(item.getProduct().getName()) != null) {
+            return item.getProduct().getName();
+        }
+        if (item.getServiceType() != null && trimToNull(item.getServiceType().getName()) != null) {
+            return item.getServiceType().getName();
+        }
+        return item.getSkuSnapshot();
     }
 
     private String buildTrackingUrl(String publicId) {

@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import sn.sopikeur.common.pagination.PageResponse;
 import sn.sopikeur.dto.request.admin.AddOrderItemRequest;
+import sn.sopikeur.dto.request.admin.AddOrderServiceRequest;
 import sn.sopikeur.dto.request.admin.MarkOrderDeliveredRequest;
 import sn.sopikeur.dto.request.admin.MarkOrderInstalledRequest;
 import sn.sopikeur.dto.request.admin.UpdateOrderDeliveryRequest;
@@ -69,6 +70,16 @@ public class OrderAdminController {
         @Valid @RequestBody AddOrderItemRequest body
     ) {
         return orderAdminService.addItem(id, body);
+    }
+
+    @PostMapping("/{id}/services")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES','EDITOR')")
+    public OrderAdminResponseDto addService(
+        @PathVariable Long id,
+        @Valid @RequestBody AddOrderServiceRequest body
+    ) {
+        return orderAdminService.addService(id, body);
     }
 
     @PatchMapping("/{id}")
