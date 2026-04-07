@@ -1,6 +1,7 @@
 package sn.sopikeur.repo.order;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import jakarta.persistence.LockModeType;
@@ -34,4 +35,65 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
 
     @Query("SELECT COALESCE(SUM(o.amountPaid), 0) FROM OrderEntity o")
     BigDecimal sumPaidAmount();
+
+    @Query("""
+        SELECT COUNT(o)
+        FROM OrderEntity o
+        WHERE (:startAt IS NULL OR o.createdAt >= :startAt)
+          AND (:endAt IS NULL OR o.createdAt < :endAt)
+        """)
+    long countByCreatedAtBetween(
+        @org.springframework.data.repository.query.Param("startAt") OffsetDateTime startAt,
+        @org.springframework.data.repository.query.Param("endAt") OffsetDateTime endAt
+    );
+
+    @Query("""
+        SELECT COALESCE(SUM(o.amountTotal), 0)
+        FROM OrderEntity o
+        WHERE (:startAt IS NULL OR o.createdAt >= :startAt)
+          AND (:endAt IS NULL OR o.createdAt < :endAt)
+        """)
+    BigDecimal sumAmountTotalByCreatedAtBetween(
+        @org.springframework.data.repository.query.Param("startAt") OffsetDateTime startAt,
+        @org.springframework.data.repository.query.Param("endAt") OffsetDateTime endAt
+    );
+
+    @Query("""
+        SELECT COUNT(o)
+        FROM OrderEntity o
+        WHERE o.status IN :statuses
+          AND (:startAt IS NULL OR o.createdAt >= :startAt)
+          AND (:endAt IS NULL OR o.createdAt < :endAt)
+        """)
+    long countByStatusInAndCreatedAtBetween(
+        @org.springframework.data.repository.query.Param("statuses") List<OrderStatus> statuses,
+        @org.springframework.data.repository.query.Param("startAt") OffsetDateTime startAt,
+        @org.springframework.data.repository.query.Param("endAt") OffsetDateTime endAt
+    );
+
+    @Query("""
+        SELECT COALESCE(SUM(o.amountTotal), 0)
+        FROM OrderEntity o
+        WHERE o.status IN :statuses
+          AND (:startAt IS NULL OR o.createdAt >= :startAt)
+          AND (:endAt IS NULL OR o.createdAt < :endAt)
+        """)
+    BigDecimal sumAmountTotalByStatusInAndCreatedAtBetween(
+        @org.springframework.data.repository.query.Param("statuses") List<OrderStatus> statuses,
+        @org.springframework.data.repository.query.Param("startAt") OffsetDateTime startAt,
+        @org.springframework.data.repository.query.Param("endAt") OffsetDateTime endAt
+    );
+
+    @Query("""
+        SELECT COALESCE(SUM(o.amountPaid), 0)
+        FROM OrderEntity o
+        WHERE o.status IN :statuses
+          AND (:startAt IS NULL OR o.createdAt >= :startAt)
+          AND (:endAt IS NULL OR o.createdAt < :endAt)
+        """)
+    BigDecimal sumAmountPaidByStatusInAndCreatedAtBetween(
+        @org.springframework.data.repository.query.Param("statuses") List<OrderStatus> statuses,
+        @org.springframework.data.repository.query.Param("startAt") OffsetDateTime startAt,
+        @org.springframework.data.repository.query.Param("endAt") OffsetDateTime endAt
+    );
 }
