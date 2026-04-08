@@ -101,11 +101,23 @@ public class CommerceService {
             throw new IllegalArgumentException("acceptsDelay must be true for preorder");
         }
         DeliveryDto delivery = resolveDelivery(request.getDelivery(), request.getCityZone());
+        CommerceItemCreateRequest primaryItem = request.getItems().get(0);
+        Product primaryProduct = resolveProduct(primaryItem);
+        validateUnit(primaryItem.getUnit(), primaryProduct);
+        int primaryQuantity = primaryItem.getQty() == null ? 1 : (int) Math.floor(primaryItem.getQty());
+        if (primaryQuantity <= 0) {
+            throw new IllegalArgumentException("qty must be > 0 for preorder items");
+        }
+
         PreorderRequest preorder = new PreorderRequest();
         preorder.setPublicId(UUID.randomUUID().toString());
         preorder.setFullName(request.getContact().getFullName());
         preorder.setPhone(request.getContact().getPhone());
         preorder.setEmail(request.getContact().getEmail() == null ? "unknown@sopikeur.sn" : request.getContact().getEmail());
+        preorder.setProductId(primaryProduct.getId());
+        preorder.setProductSlug(primaryProduct.getSlug());
+        preorder.setQuantity(primaryQuantity);
+        preorder.setUnit(primaryItem.getUnit().name());
         preorder.setCityZone(toLegacyCityZone(delivery, request.getCityZone()));
         preorder.setDeliveryJson(toDeliveryJson(delivery));
         preorder.setNeedsInstallation(Boolean.TRUE.equals(request.getInstallRequested()));
