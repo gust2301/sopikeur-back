@@ -64,7 +64,7 @@ public class GlobalExceptionHandler {
     private String extractConstraintMessage(DataIntegrityViolationException ex) {
         String raw = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
         if (raw == null) {
-            return "Operation impossible a cause d'une contrainte de donnees.";
+            return "Impossible d'enregistrer votre demande pour le moment. Merci de reessayer.";
         }
         if (raw.contains("products.sku")) {
             return "Un produit avec ce SKU existe deja.";
@@ -72,6 +72,6 @@ public class GlobalExceptionHandler {
         if (raw.contains("products.slug")) {
             return "Un produit avec ce slug existe deja.";
         }
-        return "Operation impossible a cause d'une contrainte de donnees.";
+        return "Impossible d'enregistrer votre demande pour le moment. Merci de reessayer.";
     }
 }

@@ -131,6 +131,7 @@ public class CommerceService {
 
     @Transactional
     public CommerceCreateResponse createOrder(OrderCreateRequest request) {
+        BigDecimal orderTotal = BigDecimal.ZERO;
         DeliveryDto delivery = resolveDelivery(request.getDelivery(), request.getCityZone());
         for (CommerceItemCreateRequest item : request.getItems()) {
             if (item.getQty() == null || item.getQty() <= 0) {
@@ -145,6 +146,7 @@ public class CommerceService {
             if (requested > available) {
                 throw new StockConflictException("Insufficient stock for sku=" + product.getSku() + ", available=" + available);
             }
+            orderTotal = orderTotal.add(product.getPrice().multiply(BigDecimal.valueOf(requested)));
         }
 
         OrderEntity order = new OrderEntity();
@@ -156,8 +158,12 @@ public class CommerceService {
         order.setEmail(request.getCustomer().getEmail());
         order.setCityZone(toLegacyCityZone(delivery, request.getCityZone()));
         order.setNeedsInstallation(Boolean.TRUE.equals(request.getInstallRequested()));
+        order.setInstallationRequested(Boolean.TRUE.equals(request.getInstallRequested()));
         order.setNote(delivery.getNotes());
         order.setDeliveryJson(toDeliveryJson(delivery));
+        order.setAmountTotal(orderTotal);
+        order.setAmountPaid(BigDecimal.ZERO);
+        order.setAmountDue(orderTotal);
         OrderEntity saved = orderRepository.save(order);
 
         for (CommerceItemCreateRequest item : request.getItems()) {
