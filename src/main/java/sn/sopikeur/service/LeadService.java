@@ -22,9 +22,13 @@ import sn.sopikeur.entity.leads.PreorderRequest;
 import sn.sopikeur.entity.leads.PreorderStatus;
 import sn.sopikeur.entity.leads.QuoteRequest;
 import sn.sopikeur.entity.leads.QuoteStatus;
+import sn.sopikeur.entity.leads.item.QuoteRequestItem;
+import sn.sopikeur.entity.leads.item.QuoteRequestPack;
 import sn.sopikeur.mapper.LeadMapper;
 import sn.sopikeur.repo.ContactMessageRepository;
 import sn.sopikeur.repo.PreorderRequestRepository;
+import sn.sopikeur.repo.QuoteRequestItemRepository;
+import sn.sopikeur.repo.QuoteRequestPackRepository;
 import sn.sopikeur.repo.QuoteRequestRepository;
 
 @Service
@@ -37,6 +41,8 @@ public class LeadService {
     private final ContactMessageRepository contactMessageRepository;
     private final PreorderRequestRepository preorderRequestRepository;
     private final LeadMapper leadMapper;
+    private final QuoteRequestItemRepository quoteRequestItemRepository;
+    private final QuoteRequestPackRepository quoteRequestPackRepository;
     private final NotificationService notificationService;
 
     @Transactional
@@ -84,14 +90,14 @@ public class LeadService {
     @Transactional(readOnly = true)
     public List<QuoteRequestResponse> listQuotes() {
         return quoteRequestRepository.findAll(NEWEST_FIRST).stream()
-            .map(leadMapper::toResponse)
+            .map(this::toQuoteResponse)
             .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public QuoteRequestResponse getQuoteById(Long id) {
         return quoteRequestRepository.findById(id)
-            .map(leadMapper::toResponse)
+            .map(this::toQuoteResponse)
             .orElseThrow(() -> new NotFoundException("Demande de devis introuvable"));
     }
 
@@ -128,7 +134,7 @@ public class LeadService {
         QuoteRequest quote = quoteRequestRepository.findById(id)
             .orElseThrow(() -> new NotFoundException("Demande de devis introuvable"));
         quote.setStatus(request.getStatus());
-        return leadMapper.toResponse(quoteRequestRepository.save(quote));
+        return toQuoteResponse(quoteRequestRepository.save(quote));
     }
 
     @Transactional
@@ -151,5 +157,50 @@ public class LeadService {
         if (honeypot != null && !honeypot.isBlank()) {
             throw new IllegalArgumentException("Requête rejetée.");
         }
+    }
+
+    private QuoteRequestResponse toQuoteResponse(QuoteRequest quoteRequest) {
+        List<QuoteRequestResponse.ItemDto> items = quoteRequestItemRepository.findByQuoteRequestIdOrderByIdAsc(quoteRequest.getId())
+            .stream()
+            .map(this::toQuoteItemResponse)
+            .toList();
+        List<QuoteRequestResponse.PackDto> packs = quoteRequestPackRepository.findByQuoteRequestIdOrderByIdAsc(quoteRequest.getId())
+            .stream()
+            .map(this::toQuotePackResponse)
+            .toList();
+
+        return QuoteRequestResponse.builder()
+            .id(quoteRequest.getId())
+            .fullName(quoteRequest.getFullName())
+            .email(quoteRequest.getEmail())
+            .phone(quoteRequest.getPhone())
+            .message(quoteRequest.getMessage())
+            .projectType(quoteRequest.getProjectType())
+            .cityZone(quoteRequest.getCityZone())
+            .deliveryJson(quoteRequest.getDeliveryJson())
+            .needsInstallation(quoteRequest.isNeedsInstallation())
+            .status(quoteRequest.getStatus())
+            .createdAt(quoteRequest.getCreatedAt())
+            .items(items)
+            .packs(packs)
+            .build();
+    }
+
+    private QuoteRequestResponse.ItemDto toQuoteItemResponse(QuoteRequestItem item) {
+        return QuoteRequestResponse.ItemDto.builder()
+            .productId(item.getProduct() != null ? item.getProduct().getId() : null)
+            .productName(item.getProduct() != null ? item.getProduct().getName() : null)
+            .productSlug(item.getProductSlugSnapshot())
+            .sku(item.getSkuSnapshot())
+            .quantity(item.getQty())
+            .unit(item.getUnit())
+            .build();
+    }
+
+    private QuoteRequestResponse.PackDto toQuotePackResponse(QuoteRequestPack pack) {
+        return QuoteRequestResponse.PackDto.builder()
+            .code(pack.getPackCode())
+            .label(pack.getPackLabelSnapshot())
+            .build();
     }
 }
