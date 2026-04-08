@@ -14,7 +14,7 @@
 
     <groupId>sn.sopikeur</groupId>
     <artifactId>sopikeur-back</artifactId>
-    <version>0.0.8</version>
+    <version>0.0.9</version>
     <name>sopikeur-back</name>
     <description>Sopi Keur backend</description>
 
@@ -173,6 +173,13 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>build-info</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
