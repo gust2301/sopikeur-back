@@ -27,6 +27,12 @@ public class OrderEntity extends Auditable {
     @Column(name = "order_number")
     private String orderNumber;
 
+    @Column(name = "invoice_number")
+    private String invoiceNumber;
+
+    @Column(name = "invoice_issued_at")
+    private LocalDateTime invoiceIssuedAt;
+
     @Convert(converter = OrderStatusConverter.class)
     @Column(name = "status", nullable = false)
     private OrderStatus status;

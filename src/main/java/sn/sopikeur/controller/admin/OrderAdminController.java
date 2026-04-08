@@ -1,19 +1,41 @@
 package sn.sopikeur.controller.admin;
 
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+import sn.sopikeur.common.pagination.PageResponse;
 import sn.sopikeur.dto.request.admin.AddOrderItemRequest;
+import sn.sopikeur.dto.request.admin.AddOrderServiceRequest;
 import sn.sopikeur.dto.request.admin.MarkOrderDeliveredRequest;
 import sn.sopikeur.dto.request.admin.MarkOrderInstalledRequest;
+import sn.sopikeur.dto.request.admin.OrderExpenseUpsertRequest;
 import sn.sopikeur.dto.request.admin.UpdateOrderDeliveryRequest;
 import sn.sopikeur.dto.request.admin.UpdateOrderDetailsRequest;
-import sn.sopikeur.common.pagination.PageResponse;
 import sn.sopikeur.dto.response.admin.OrderAdminResponseDto;
+import sn.sopikeur.dto.response.admin.OrderExpenseAdminResponseDto;
+import sn.sopikeur.dto.response.admin.OrderExpenseListAdminResponseDto;
+import sn.sopikeur.dto.response.admin.OrderPaymentAdminResponseDto;
 import sn.sopikeur.service.OrderAdminService;
+import sn.sopikeur.service.OrderDocumentPdfService;
+import sn.sopikeur.service.OrderExpenseAdminService;
 
 @RestController
 @RequestMapping("/api/v1/admin/orders")
@@ -21,6 +43,8 @@ import sn.sopikeur.service.OrderAdminService;
 public class OrderAdminController {
 
     private final OrderAdminService orderAdminService;
+    private final OrderDocumentPdfService orderDocumentPdfService;
+    private final OrderExpenseAdminService orderExpenseAdminService;
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
@@ -38,6 +62,48 @@ public class OrderAdminController {
         return orderAdminService.list(page, size, status);
     }
 
+    @GetMapping("/{id}/payments")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    public List<OrderPaymentAdminResponseDto> listPayments(@PathVariable Long id) {
+        return orderAdminService.getPayments(id);
+    }
+
+    @GetMapping("/{id}/expenses")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public OrderExpenseListAdminResponseDto listExpenses(@PathVariable Long id) {
+        return orderExpenseAdminService.list(id);
+    }
+
+    @PostMapping("/{id}/expenses")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public OrderExpenseAdminResponseDto createExpense(
+        @PathVariable Long id,
+        @Valid @RequestBody OrderExpenseUpsertRequest body
+    ) {
+        return orderExpenseAdminService.create(id, body);
+    }
+
+    @PutMapping("/{id}/expenses/{expenseId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public OrderExpenseAdminResponseDto updateExpense(
+        @PathVariable Long id,
+        @PathVariable Long expenseId,
+        @Valid @RequestBody OrderExpenseUpsertRequest body
+    ) {
+        return orderExpenseAdminService.update(id, expenseId, body);
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/{id}/expenses/{expenseId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public void deleteExpense(
+        @PathVariable Long id,
+        @PathVariable Long expenseId
+    ) {
+        orderExpenseAdminService.delete(id, expenseId);
+    }
+
     @PostMapping("/{id}/items")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
@@ -46,6 +112,16 @@ public class OrderAdminController {
         @Valid @RequestBody AddOrderItemRequest body
     ) {
         return orderAdminService.addItem(id, body);
+    }
+
+    @PostMapping("/{id}/services")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES','EDITOR')")
+    public OrderAdminResponseDto addService(
+        @PathVariable Long id,
+        @Valid @RequestBody AddOrderServiceRequest body
+    ) {
+        return orderAdminService.addService(id, body);
     }
 
     @PatchMapping("/{id}")
@@ -99,7 +175,30 @@ public class OrderAdminController {
         @PathVariable Long id,
         @RequestBody Map<String, Object> body
     ) {
-        java.math.BigDecimal amountPaid = new java.math.BigDecimal(body.get("amountPaid").toString());
+        BigDecimal amountPaid = new BigDecimal(body.get("amountPaid").toString());
         return orderAdminService.recordPayment(id, amountPaid);
+    }
+
+    @PostMapping("/{id}/issue-invoice")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    public Map<String, String> issueInvoice(@PathVariable Long id) {
+        return Map.of("invoiceNumber", orderAdminService.issueInvoice(id));
+    }
+
+    @GetMapping("/{id}/invoice.pdf")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    public ResponseEntity<byte[]> downloadInvoice(@PathVariable Long id) {
+        OrderAdminService.InvoiceDocumentData document = orderAdminService.getInvoiceDocument(id);
+        byte[] pdf = orderDocumentPdfService.buildInvoicePdf(
+            document.order(),
+            document.payments(),
+            document.paidTotal(),
+            document.dueTotal()
+        );
+        String filename = document.order().getInvoiceNumber() + ".pdf";
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_PDF)
+            .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(filename).build().toString())
+            .body(pdf);
     }
 }

@@ -46,6 +46,7 @@ public class StockService {
     public StockItemResponseDto updateStock(Long productId, UpdateStockRequest request) {
         Product product = productRepository.findById(productId)
             .orElseThrow(() -> new NotFoundException("Produit introuvable"));
+        ensureStockManagedProduct(product);
         StockItem stockItem = stockItemRepository.findByProductId(productId)
             .orElseGet(() -> createStockItem(product));
         if (request.getQuantity() != null) {
@@ -67,6 +68,7 @@ public class StockService {
     public StockMovement createMovement(CreateStockMovementRequest request) {
         Product product = productRepository.findById(request.getProductId())
             .orElseThrow(() -> new NotFoundException("Produit introuvable"));
+        ensureStockManagedProduct(product);
         StockItem stockItem = stockItemRepository.findByProductId(product.getId())
             .orElseGet(() -> createStockItem(product));
 
@@ -94,5 +96,11 @@ public class StockService {
         item.setReserved(0);
         item.setPreorderAllowed(false);
         return item;
+    }
+
+    private void ensureStockManagedProduct(Product product) {
+        if (product.getType() == ProductType.SERVICE) {
+            throw new IllegalArgumentException("Les services ne gerent pas de stock.");
+        }
     }
 }

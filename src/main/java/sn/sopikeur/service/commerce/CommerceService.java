@@ -20,6 +20,7 @@ import sn.sopikeur.entity.leads.item.QuoteRequestItem;
 import sn.sopikeur.entity.leads.item.QuoteRequestPack;
 import sn.sopikeur.entity.order.OrderEntity;
 import sn.sopikeur.entity.order.OrderItem;
+import sn.sopikeur.entity.order.OrderLineType;
 import sn.sopikeur.entity.order.OrderStatus;
 import sn.sopikeur.entity.stock.StockItem;
 import sn.sopikeur.repo.*;
@@ -100,11 +101,23 @@ public class CommerceService {
             throw new IllegalArgumentException("acceptsDelay must be true for preorder");
         }
         DeliveryDto delivery = resolveDelivery(request.getDelivery(), request.getCityZone());
+        CommerceItemCreateRequest primaryItem = request.getItems().get(0);
+        Product primaryProduct = resolveProduct(primaryItem);
+        validateUnit(primaryItem.getUnit(), primaryProduct);
+        int primaryQuantity = primaryItem.getQty() == null ? 1 : (int) Math.floor(primaryItem.getQty());
+        if (primaryQuantity <= 0) {
+            throw new IllegalArgumentException("qty must be > 0 for preorder items");
+        }
+
         PreorderRequest preorder = new PreorderRequest();
         preorder.setPublicId(UUID.randomUUID().toString());
         preorder.setFullName(request.getContact().getFullName());
         preorder.setPhone(request.getContact().getPhone());
         preorder.setEmail(request.getContact().getEmail() == null ? "unknown@sopikeur.sn" : request.getContact().getEmail());
+        preorder.setProductId(primaryProduct.getId());
+        preorder.setProductSlug(primaryProduct.getSlug());
+        preorder.setQuantity(primaryQuantity);
+        preorder.setUnit(primaryItem.getUnit().name());
         preorder.setCityZone(toLegacyCityZone(delivery, request.getCityZone()));
         preorder.setDeliveryJson(toDeliveryJson(delivery));
         preorder.setNeedsInstallation(Boolean.TRUE.equals(request.getInstallRequested()));
@@ -130,6 +143,7 @@ public class CommerceService {
 
     @Transactional
     public CommerceCreateResponse createOrder(OrderCreateRequest request) {
+        BigDecimal orderTotal = BigDecimal.ZERO;
         DeliveryDto delivery = resolveDelivery(request.getDelivery(), request.getCityZone());
         for (CommerceItemCreateRequest item : request.getItems()) {
             if (item.getQty() == null || item.getQty() <= 0) {
@@ -144,6 +158,7 @@ public class CommerceService {
             if (requested > available) {
                 throw new StockConflictException("Insufficient stock for sku=" + product.getSku() + ", available=" + available);
             }
+            orderTotal = orderTotal.add(product.getPrice().multiply(BigDecimal.valueOf(requested)));
         }
 
         OrderEntity order = new OrderEntity();
@@ -155,8 +170,12 @@ public class CommerceService {
         order.setEmail(request.getCustomer().getEmail());
         order.setCityZone(toLegacyCityZone(delivery, request.getCityZone()));
         order.setNeedsInstallation(Boolean.TRUE.equals(request.getInstallRequested()));
+        order.setInstallationRequested(Boolean.TRUE.equals(request.getInstallRequested()));
         order.setNote(delivery.getNotes());
         order.setDeliveryJson(toDeliveryJson(delivery));
+        order.setAmountTotal(orderTotal);
+        order.setAmountPaid(BigDecimal.ZERO);
+        order.setAmountDue(orderTotal);
         OrderEntity saved = orderRepository.save(order);
 
         for (CommerceItemCreateRequest item : request.getItems()) {
@@ -169,7 +188,9 @@ public class CommerceService {
 
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(saved);
+            orderItem.setLineType(OrderLineType.PRODUCT);
             orderItem.setProduct(product);
+            orderItem.setDisplayName(product.getName());
             orderItem.setSkuSnapshot(product.getSku());
             orderItem.setUnit(item.getUnit().name());
             orderItem.setQty(qty);

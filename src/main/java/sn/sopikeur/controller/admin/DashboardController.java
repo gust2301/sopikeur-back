@@ -1,10 +1,14 @@
 package sn.sopikeur.controller.admin;
 
 import lombok.RequiredArgsConstructor;
+import java.time.LocalDate;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import sn.sopikeur.dto.response.admin.DashboardSummaryDto;
 import sn.sopikeur.dto.response.admin.DashboardStatsDto;
 import sn.sopikeur.service.DashboardAdminService;
 
@@ -19,5 +23,15 @@ public class DashboardController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','EDITOR','SALES')")
     public DashboardStatsDto getStats() {
         return dashboardAdminService.getStats();
+    }
+
+    @GetMapping("/summary")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES')")
+    public DashboardSummaryDto getSummary(
+        @RequestParam(required = false) LocalDate startDate,
+        @RequestParam(required = false) LocalDate endDate,
+        Authentication authentication
+    ) {
+        return dashboardAdminService.getSummary(startDate, endDate, authentication);
     }
 }

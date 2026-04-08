@@ -11,6 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -87,7 +88,9 @@ class OrderAdminPaymentIT extends BaseMySqlIT {
                 """))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.amountPaid").value(250000.00))
-            .andExpect(jsonPath("$.amountDue").value(353500.00));
+            .andExpect(jsonPath("$.amountDue").value(353500.00))
+            .andExpect(jsonPath("$.payments[0].receiptNumber").value(org.hamcrest.Matchers.startsWith("RCPT-")))
+            .andExpect(jsonPath("$.payments[0].amount").value(50000.00));
     }
 
     @Test
@@ -154,6 +157,14 @@ class OrderAdminPaymentIT extends BaseMySqlIT {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.amountPaid").value(350000.00))
             .andExpect(jsonPath("$.amountDue").value(253500.00));
+
+        mockMvc.perform(get("/api/v1/admin/orders/{id}/payments", orderId)
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].receiptNumber").value(org.hamcrest.Matchers.startsWith("RCPT-")))
+            .andExpect(jsonPath("$[1].receiptNumber").value(org.hamcrest.Matchers.startsWith("RCPT-")))
+            .andExpect(jsonPath("$[0].paidTotal").value(350000.00))
+            .andExpect(jsonPath("$[0].dueTotal").value(253500.00));
     }
 
     @Test
