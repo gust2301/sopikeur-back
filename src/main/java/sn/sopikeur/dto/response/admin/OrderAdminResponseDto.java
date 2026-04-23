@@ -80,7 +80,7 @@ public class OrderAdminResponseDto {
         private String productName;
         private String sku;
         private String unit;
-        private int quantity;
+        private BigDecimal quantity;
         private BigDecimal unitPrice;
         private BigDecimal lineTotal;
     }
@@ -98,7 +98,7 @@ public class OrderAdminResponseDto {
         private String serviceName;
         private String serviceCode;
         private String unit;
-        private int quantity;
+        private BigDecimal quantity;
         private BigDecimal unitPrice;
         private BigDecimal lineTotal;
         private String note;

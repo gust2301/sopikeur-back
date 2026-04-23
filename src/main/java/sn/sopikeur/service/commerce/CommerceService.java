@@ -29,6 +29,7 @@ import sn.sopikeur.repo.order.OrderRepository;
 import sn.sopikeur.service.NotificationService;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
@@ -104,8 +105,8 @@ public class CommerceService {
         CommerceItemCreateRequest primaryItem = request.getItems().get(0);
         Product primaryProduct = resolveProduct(primaryItem);
         validateUnit(primaryItem.getUnit(), primaryProduct);
-        int primaryQuantity = primaryItem.getQty() == null ? 1 : (int) Math.floor(primaryItem.getQty());
-        if (primaryQuantity <= 0) {
+        BigDecimal primaryQuantity = normalizeQuantity(primaryItem.getQty());
+        if (primaryQuantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("qty must be > 0 for preorder items");
         }
 
@@ -116,7 +117,7 @@ public class CommerceService {
         preorder.setEmail(request.getContact().getEmail() == null ? "unknown@sopikeur.sn" : request.getContact().getEmail());
         preorder.setProductId(primaryProduct.getId());
         preorder.setProductSlug(primaryProduct.getSlug());
-        preorder.setQuantity(primaryQuantity);
+        preorder.setQuantity(primaryQuantity.setScale(0, RoundingMode.CEILING).intValue());
         preorder.setUnit(primaryItem.getUnit().name());
         preorder.setCityZone(toLegacyCityZone(delivery, request.getCityZone()));
         preorder.setDeliveryJson(toDeliveryJson(delivery));
@@ -153,12 +154,12 @@ public class CommerceService {
             validateUnit(item.getUnit(), product);
             StockItem stockItem = stockItemRepository.findByProductId(product.getId())
                 .orElseThrow(() -> new StockConflictException("Stock unavailable for sku=" + product.getSku()));
-            int requested = (int) Math.floor(item.getQty());
+            BigDecimal requested = normalizeQuantity(item.getQty());
             int available = stockItem.getQuantity() - stockItem.getReserved();
-            if (requested > available) {
+            if (requested.compareTo(BigDecimal.valueOf(available)) > 0) {
                 throw new StockConflictException("Insufficient stock for sku=" + product.getSku() + ", available=" + available);
             }
-            orderTotal = orderTotal.add(product.getPrice().multiply(BigDecimal.valueOf(requested)));
+            orderTotal = orderTotal.add(product.getPrice().multiply(requested));
         }
 
         OrderEntity order = new OrderEntity();
@@ -182,8 +183,8 @@ public class CommerceService {
             Product product = resolveProduct(item);
             StockItem stockItem = stockItemRepository.findByProductId(product.getId())
                 .orElseThrow(() -> new StockConflictException("Stock unavailable for sku=" + product.getSku()));
-            int qty = (int) Math.floor(item.getQty());
-            stockItem.setQuantity(stockItem.getQuantity() - qty);
+            BigDecimal qty = normalizeQuantity(item.getQty());
+            stockItem.setQuantity(stockItem.getQuantity() - qty.setScale(0, RoundingMode.CEILING).intValue());
             stockItemRepository.save(stockItem);
 
             OrderItem orderItem = new OrderItem();
@@ -195,7 +196,7 @@ public class CommerceService {
             orderItem.setUnit(item.getUnit().name());
             orderItem.setQty(qty);
             orderItem.setUnitPriceSnapshot(product.getPrice());
-            orderItem.setLineTotalSnapshot(product.getPrice().multiply(BigDecimal.valueOf(qty)));
+            orderItem.setLineTotalSnapshot(product.getPrice().multiply(qty));
             orderItemRepository.save(orderItem);
         }
 
@@ -272,6 +273,13 @@ public class CommerceService {
         if (unit != expected) {
             throw new IllegalArgumentException("unit mismatch for sku=" + product.getSku() + ", expected=" + expected);
         }
+    }
+
+    private BigDecimal normalizeQuantity(Double rawQty) {
+        if (rawQty == null) {
+            return BigDecimal.ONE;
+        }
+        return BigDecimal.valueOf(rawQty).setScale(2, RoundingMode.HALF_UP);
     }
 
     private CommerceCreateResponse response(String id, String orderNumber, String status, OffsetDateTime createdAt) {

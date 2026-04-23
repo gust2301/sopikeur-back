@@ -58,7 +58,7 @@ public class PublicOrderTrackingResponseDto {
         private String sku;
         private String name;
         private String unit;
-        private int quantity;
+        private BigDecimal quantity;
         private BigDecimal unitPrice;
         private BigDecimal lineTotal;
     }
