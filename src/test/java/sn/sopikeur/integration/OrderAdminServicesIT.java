@@ -198,6 +198,54 @@ class OrderAdminServicesIT extends BaseMySqlIT {
             .andExpect(jsonPath("$.message").value("Impossible d'ajouter un service d'installation si la pose n'est pas demandee."));
     }
 
+    @Test
+    void updateItem_shouldRecalculateOrderTotals() throws Exception {
+        String token = login();
+        Long orderId = createOrderAndReturnId("line-update@sopikeur.sn");
+        Long itemId = jdbcTemplate.queryForObject(
+            "SELECT id FROM order_items WHERE order_id = ? ORDER BY id ASC LIMIT 1",
+            Long.class,
+            orderId
+        );
+
+        mockMvc.perform(patch("/api/v1/admin/orders/{id}/items/{itemId}", orderId, itemId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "quantity": 17.92,
+                      "unitPrice": 19900,
+                      "note": "Ajuste depuis backoffice"
+                    }
+                """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.orderLines[0].quantity").value(17.92))
+            .andExpect(jsonPath("$.orderLines[0].lineTotal").value(356608.00))
+            .andExpect(jsonPath("$.orderLines[0].note").value("Ajuste depuis backoffice"))
+            .andExpect(jsonPath("$.totalAmount").value(356608.00));
+    }
+
+    @Test
+    void deleteItem_shouldRemoveLineAndRecalculateOrderTotals() throws Exception {
+        String token = login();
+        Long orderId = createOrderAndReturnId("line-delete@sopikeur.sn");
+        Long itemId = jdbcTemplate.queryForObject(
+            "SELECT id FROM order_items WHERE order_id = ? ORDER BY id ASC LIMIT 1",
+            Long.class,
+            orderId
+        );
+
+        mockMvc.perform(delete("/api/v1/admin/orders/{id}/items/{itemId}", orderId, itemId)
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/admin/orders/{id}", orderId)
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.orderLines").isEmpty())
+            .andExpect(jsonPath("$.totalAmount").value(0.0));
+    }
+
     private Long createServiceType(String token, String code, String name, int defaultPrice) throws Exception {
         Long existingId = jdbcTemplate.query(
             "SELECT id FROM service_types WHERE code = ? LIMIT 1",

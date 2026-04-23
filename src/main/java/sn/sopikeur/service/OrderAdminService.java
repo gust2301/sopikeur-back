@@ -25,6 +25,7 @@ import sn.sopikeur.dto.request.admin.AddOrderItemRequest;
 import sn.sopikeur.dto.request.admin.AddOrderServiceRequest;
 import sn.sopikeur.dto.request.admin.MarkOrderDeliveredRequest;
 import sn.sopikeur.dto.request.admin.MarkOrderInstalledRequest;
+import sn.sopikeur.dto.request.admin.UpdateOrderItemRequest;
 import sn.sopikeur.dto.request.admin.UpdateOrderDeliveryRequest;
 import sn.sopikeur.dto.request.admin.UpdateOrderDetailsRequest;
 import sn.sopikeur.dto.response.admin.OrderAdminResponseDto;
@@ -167,6 +168,46 @@ public class OrderAdminService {
         orderRepository.save(order);
 
         return toDto(order, true);
+    }
+
+    @Transactional
+    public OrderAdminResponseDto updateItem(Long orderId, Long itemId, UpdateOrderItemRequest request) {
+        OrderEntity order = findOrderWithItems(orderId);
+        OrderItem item = orderItemRepository.findByIdAndOrderId(itemId, orderId)
+            .orElseThrow(() -> new NotFoundException("Ligne de commande introuvable"));
+
+        if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("La quantite doit etre superieure a zero.");
+        }
+        if (request.getUnitPrice() == null || request.getUnitPrice().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Le prix unitaire ne peut pas etre negatif.");
+        }
+
+        item.setQty(request.getQuantity());
+        item.setUnitPriceSnapshot(request.getUnitPrice());
+        item.setLineTotalSnapshot(request.getUnitPrice().multiply(request.getQuantity()));
+        item.setLineNote(trimToNull(request.getNote()));
+        orderItemRepository.save(item);
+
+        syncDerivedInstallationAmount(order);
+        syncFinancials(order, computeItemsTotal(order), resolvePaidAmount(order.getId()));
+        orderRepository.save(order);
+
+        return toDto(order, true);
+    }
+
+    @Transactional
+    public void deleteItem(Long orderId, Long itemId) {
+        OrderEntity order = findOrderWithItems(orderId);
+        OrderItem item = orderItemRepository.findByIdAndOrderId(itemId, orderId)
+            .orElseThrow(() -> new NotFoundException("Ligne de commande introuvable"));
+
+        order.getItems().removeIf(existing -> existing.getId().equals(itemId));
+        orderItemRepository.delete(item);
+
+        syncDerivedInstallationAmount(order);
+        syncFinancials(order, computeItemsTotal(order), resolvePaidAmount(order.getId()));
+        orderRepository.save(order);
     }
 
     @Transactional

@@ -27,6 +27,7 @@ import sn.sopikeur.dto.request.admin.AddOrderServiceRequest;
 import sn.sopikeur.dto.request.admin.MarkOrderDeliveredRequest;
 import sn.sopikeur.dto.request.admin.MarkOrderInstalledRequest;
 import sn.sopikeur.dto.request.admin.OrderExpenseUpsertRequest;
+import sn.sopikeur.dto.request.admin.UpdateOrderItemRequest;
 import sn.sopikeur.dto.request.admin.UpdateOrderDeliveryRequest;
 import sn.sopikeur.dto.request.admin.UpdateOrderDetailsRequest;
 import sn.sopikeur.dto.response.admin.OrderAdminResponseDto;
@@ -122,6 +123,26 @@ public class OrderAdminController {
         @Valid @RequestBody AddOrderServiceRequest body
     ) {
         return orderAdminService.addService(id, body);
+    }
+
+    @PatchMapping("/{id}/items/{itemId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES','EDITOR')")
+    public OrderAdminResponseDto updateItem(
+        @PathVariable Long id,
+        @PathVariable Long itemId,
+        @Valid @RequestBody UpdateOrderItemRequest body
+    ) {
+        return orderAdminService.updateItem(id, itemId, body);
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/{id}/items/{itemId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SALES','EDITOR')")
+    public void deleteItem(
+        @PathVariable Long id,
+        @PathVariable Long itemId
+    ) {
+        orderAdminService.deleteItem(id, itemId);
     }
 
     @PatchMapping("/{id}")
