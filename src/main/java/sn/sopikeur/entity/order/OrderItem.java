@@ -44,8 +44,8 @@ public class OrderItem extends Auditable {
     @Column(name = "unit", nullable = false)
     private String unit;
 
-    @Column(name = "qty", nullable = false)
-    private int qty;
+    @Column(name = "qty", nullable = false, precision = 12, scale = 2)
+    private BigDecimal qty;
 
     @Column(name = "unit_price_snapshot", nullable = false)
     private BigDecimal unitPriceSnapshot;

@@ -102,7 +102,8 @@ public class OrderAdminService {
         BigDecimal currentTotal = resolvePersistedTotal(order);
 
         BigDecimal unitPrice = product.getPrice();
-        BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(request.getQuantity()));
+        BigDecimal quantity = BigDecimal.valueOf(request.getQuantity());
+        BigDecimal lineTotal = unitPrice.multiply(quantity);
 
         OrderItem item = new OrderItem();
         item.setOrder(order);
@@ -111,7 +112,7 @@ public class OrderAdminService {
         item.setDisplayName(product.getName());
         item.setSkuSnapshot(product.getSku() != null ? product.getSku() : product.getSlug());
         item.setUnit(product.getUnit() != null ? product.getUnit() : "piece");
-        item.setQty(request.getQuantity());
+        item.setQty(quantity);
         item.setUnitPriceSnapshot(unitPrice);
         item.setLineTotalSnapshot(lineTotal);
         orderItemRepository.save(item);
@@ -149,9 +150,10 @@ public class OrderAdminService {
         item.setDisplayName(serviceProduct.getName());
         item.setSkuSnapshot(blankFallback(serviceProduct.getSku(), serviceProduct.getSlug()));
         item.setUnit(trimToNull(serviceProduct.getUnit()) != null ? trimToNull(serviceProduct.getUnit()) : "service");
-        item.setQty(request.getQuantity());
+        BigDecimal quantity = BigDecimal.valueOf(request.getQuantity());
+        item.setQty(quantity);
         item.setUnitPriceSnapshot(request.getUnitPrice());
-        item.setLineTotalSnapshot(request.getUnitPrice().multiply(BigDecimal.valueOf(request.getQuantity())));
+        item.setLineTotalSnapshot(request.getUnitPrice().multiply(quantity));
         item.setLineNote(trimToNull(request.getNote()));
         orderItemRepository.save(item);
 

@@ -1,0 +1,2 @@
+ALTER TABLE order_items
+    MODIFY COLUMN qty DECIMAL(12,2) NOT NULL;
