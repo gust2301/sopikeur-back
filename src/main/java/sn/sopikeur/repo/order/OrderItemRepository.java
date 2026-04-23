@@ -2,6 +2,7 @@ package sn.sopikeur.repo.order;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import sn.sopikeur.entity.order.OrderEntity;
@@ -12,4 +13,6 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
     BigDecimal sumRevenue();
 
     List<OrderItem> findByOrderOrderByCreatedAtAscIdAsc(OrderEntity order);
+
+    Optional<OrderItem> findByIdAndOrderId(Long id, Long orderId);
 }
