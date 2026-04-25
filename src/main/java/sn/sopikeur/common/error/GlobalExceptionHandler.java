@@ -72,6 +72,9 @@ public class GlobalExceptionHandler {
         if (raw.contains("products.slug")) {
             return "Un produit avec ce slug existe deja.";
         }
+        if (raw.contains("articles.slug")) {
+            return "Un article avec ce slug existe deja.";
+        }
         return "Impossible d'enregistrer votre demande pour le moment. Merci de reessayer.";
     }
 }
