@@ -8,6 +8,7 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    out-of-order: true
     placeholders:
       ADMIN_SUPER_PASSWORD_HASH: ${ADMIN_SUPER_PASSWORD_HASH:}
   jackson:
