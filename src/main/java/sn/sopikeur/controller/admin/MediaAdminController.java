@@ -7,7 +7,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import sn.sopikeur.common.error.NotFoundException;
 import sn.sopikeur.dto.request.admin.RegisterMediaAssetRequest;
+import sn.sopikeur.dto.request.admin.UpdateMediaAssetRequest;
 import sn.sopikeur.dto.response.admin.MediaAssetResponseDto;
 import sn.sopikeur.entity.media.MediaAsset;
 import sn.sopikeur.repo.MediaAssetRepository;
@@ -36,13 +38,34 @@ public class MediaAdminController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','EDITOR')")
     public MediaAssetResponseDto registerAsset(@Valid @RequestBody RegisterMediaAssetRequest request) {
-        String cleanPath = request.getPath().replaceFirst("^/?assets/", "").replaceFirst("^/+", "");
+        String cleanPath = cleanPath(request.getPath());
         MediaAsset asset = new MediaAsset();
         asset.setPath(cleanPath);
         asset.setUrl("https://assets.sopikeur.sn/" + cleanPath);
         asset.setAlt(request.getAlt());
         asset.setCover(false);
         return toDto(mediaAssetRepository.save(asset));
+    }
+
+    @PutMapping("/assets/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','EDITOR')")
+    public MediaAssetResponseDto updateAsset(@PathVariable Long id, @Valid @RequestBody UpdateMediaAssetRequest request) {
+        MediaAsset asset = mediaAssetRepository.findById(id)
+            .orElseThrow(() -> new NotFoundException("Asset introuvable"));
+        String cleanPath = cleanPath(request.getPath());
+        asset.setPath(cleanPath);
+        asset.setUrl("https://assets.sopikeur.sn/" + cleanPath);
+        asset.setAlt(request.getAlt());
+        return toDto(mediaAssetRepository.save(asset));
+    }
+
+    @DeleteMapping("/assets/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','EDITOR')")
+    public void deleteAsset(@PathVariable Long id) {
+        MediaAsset asset = mediaAssetRepository.findById(id)
+            .orElseThrow(() -> new NotFoundException("Asset introuvable"));
+        mediaAssetRepository.delete(asset);
     }
 
     private MediaAssetResponseDto toDto(MediaAsset a) {
@@ -67,5 +90,9 @@ public class MediaAdminController {
             .replaceFirst("^https?://assets\\.sopikeur\\.sn/", "")
             .replaceFirst("^/?assets/", "")
             .replaceFirst("^/+", "");
+    }
+
+    private String cleanPath(String path) {
+        return path.replaceFirst("^/?assets/", "").replaceFirst("^/+", "");
     }
 }
