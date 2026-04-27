@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import sn.sopikeur.entity.order.OrderEntity;
@@ -27,6 +28,9 @@ class OrderCreateIT extends BaseMySqlIT {
 
     @Autowired
     private OrderRepository orderRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void createOrder_persistsDeliveryJsonAndNeedsInstallation() throws Exception {
@@ -129,5 +133,66 @@ class OrderCreateIT extends BaseMySqlIT {
         assertThat(item.getQty()).isEqualByComparingTo("17.50");
         assertThat(item.getLineTotalSnapshot()).isEqualByComparingTo(new BigDecimal("350000.00"));
         assertThat(saved.getAmountTotal()).isEqualByComparingTo(new BigDecimal("350000.00"));
+    }
+
+    @Test
+    void createOrder_usesActivePromotionPriceWhenAvailable() throws Exception {
+        jdbcTemplate.update(
+            """
+            UPDATE products
+            SET promo_active = TRUE,
+                promo_price = 15000.00,
+                promo_start_date = CURRENT_DATE - INTERVAL 1 DAY,
+                promo_end_date = CURRENT_DATE + INTERVAL 1 DAY,
+                promo_label = 'Promo'
+            WHERE id = 1002
+            """
+        );
+
+        String payload = """
+            {
+              "customer": {
+                "fullName": "Client Promo",
+                "phone": "+221771234567",
+                "email": "order-promo@sopikeur.sn"
+              },
+              "delivery": {
+                "city": "Dakar"
+              },
+              "installRequested": false,
+              "items": [
+                {
+                  "productId": "1002",
+                  "sku": "SPC006",
+                  "qty": 2,
+                  "unit": "M2"
+                }
+              ]
+            }
+            """;
+
+        MvcResult result = mockMvc.perform(post("/api/v1/orders")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payload))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+        String publicId = objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asText();
+
+        OrderEntity saved = orderRepository.findAll().stream()
+            .filter(order -> publicId.equals(order.getPublicId()))
+            .findFirst()
+            .orElseThrow();
+
+        OrderItem item = orderRepository.findDetailedById(saved.getId())
+            .orElseThrow()
+            .getItems()
+            .stream()
+            .findFirst()
+            .orElseThrow();
+
+        assertThat(item.getUnitPriceSnapshot()).isEqualByComparingTo(new BigDecimal("15000.00"));
+        assertThat(item.getLineTotalSnapshot()).isEqualByComparingTo(new BigDecimal("30000.00"));
+        assertThat(saved.getAmountTotal()).isEqualByComparingTo(new BigDecimal("30000.00"));
     }
 }

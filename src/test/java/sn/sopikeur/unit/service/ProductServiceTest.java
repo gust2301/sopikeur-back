@@ -11,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import sn.sopikeur.config.TimeConfig;
 import sn.sopikeur.dto.request.publicapi.ProductSearchRequest;
 import sn.sopikeur.dto.request.publicapi.StockFilter;
 import sn.sopikeur.dto.response.publicapi.ProductSearchResponse;
@@ -20,6 +21,7 @@ import sn.sopikeur.entity.catalog.ProductType;
 import sn.sopikeur.mapper.ProductMapper;
 import sn.sopikeur.repo.ProductRepository;
 import sn.sopikeur.repo.StockItemRepository;
+import sn.sopikeur.service.ProductPricingService;
 import sn.sopikeur.service.ProductService;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,7 +44,12 @@ class ProductServiceTest {
     @BeforeEach
     void setUp() {
         ProductMapper mapper = Mappers.getMapper(ProductMapper.class);
-        productService = new ProductService(productRepository, stockItemRepository, mapper);
+        productService = new ProductService(
+            productRepository,
+            stockItemRepository,
+            mapper,
+            new ProductPricingService(new TimeConfig().clock())
+        );
     }
 
     @Test

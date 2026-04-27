@@ -27,6 +27,7 @@ import sn.sopikeur.repo.*;
 import sn.sopikeur.repo.order.OrderItemRepository;
 import sn.sopikeur.repo.order.OrderRepository;
 import sn.sopikeur.service.NotificationService;
+import sn.sopikeur.service.ProductPricingService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -51,6 +52,7 @@ public class CommerceService {
     private final OrderItemRepository orderItemRepository;
     private final ObjectMapper objectMapper;
     private final NotificationService notificationService;
+    private final ProductPricingService productPricingService;
 
     @Transactional
     public CommerceCreateResponse createQuote(QuoteCreateRequest request) {
@@ -159,7 +161,8 @@ public class CommerceService {
             if (requested.compareTo(BigDecimal.valueOf(available)) > 0) {
                 throw new StockConflictException("Insufficient stock for sku=" + product.getSku() + ", available=" + available);
             }
-            orderTotal = orderTotal.add(product.getPrice().multiply(requested));
+            BigDecimal effectivePrice = productPricingService.resolveEffectivePrice(product);
+            orderTotal = orderTotal.add(effectivePrice.multiply(requested));
         }
 
         OrderEntity order = new OrderEntity();
@@ -195,8 +198,9 @@ public class CommerceService {
             orderItem.setSkuSnapshot(product.getSku());
             orderItem.setUnit(item.getUnit().name());
             orderItem.setQty(qty);
-            orderItem.setUnitPriceSnapshot(product.getPrice());
-            orderItem.setLineTotalSnapshot(product.getPrice().multiply(qty));
+            BigDecimal effectivePrice = productPricingService.resolveEffectivePrice(product);
+            orderItem.setUnitPriceSnapshot(effectivePrice);
+            orderItem.setLineTotalSnapshot(effectivePrice.multiply(qty));
             orderItemRepository.save(orderItem);
         }
 

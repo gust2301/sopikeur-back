@@ -28,6 +28,7 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final StockItemRepository stockItemRepository;
     private final ProductMapper productMapper;
+    private final ProductPricingService productPricingService;
 
     @Transactional(readOnly = true)
     public ProductSearchResponse listProducts(ProductSearchRequest request) {
@@ -60,12 +61,24 @@ public class ProductService {
             .filter(p -> p.getStatus() != null && p.getStatus().name().equals("ACTIVE"))
             .filter(p -> p.getType() == null || !p.getType().name().equals("ACCESSORY"))
             .orElseThrow(() -> new NotFoundException("Produit introuvable"));
-        return productMapper.toDetail(product, resolveStockStatus(product.getId()));
+        return productMapper.toDetail(
+            product,
+            resolveStockStatus(product.getId()),
+            productPricingService.isPromotionActive(product),
+            productPricingService.resolveEffectivePrice(product),
+            productPricingService.resolveDiscountPercent(product)
+        );
     }
 
     @Transactional(readOnly = true)
     public ProductSummaryResponse toSummary(Product product) {
-        return productMapper.toSummary(product, resolveStockStatus(product.getId()));
+        return productMapper.toSummary(
+            product,
+            resolveStockStatus(product.getId()),
+            productPricingService.isPromotionActive(product),
+            productPricingService.resolveEffectivePrice(product),
+            productPricingService.resolveDiscountPercent(product)
+        );
     }
 
     @Transactional(readOnly = true)

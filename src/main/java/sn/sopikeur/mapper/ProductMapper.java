@@ -18,13 +18,31 @@ public interface ProductMapper {
     @Mapping(target = "coverUrl", expression = "java(resolveCoverUrl(product))")
     @Mapping(target = "mainImage", expression = "java(resolveCoverUrl(product))")
     @Mapping(target = "stockStatus", source = "stockStatus")
-    ProductSummaryResponse toSummary(Product product, StockStatus stockStatus);
+    @Mapping(target = "promotionActive", source = "promotionActive")
+    @Mapping(target = "effectivePrice", source = "effectivePrice")
+    @Mapping(target = "discountPercent", source = "discountPercent")
+    ProductSummaryResponse toSummary(
+        Product product,
+        StockStatus stockStatus,
+        boolean promotionActive,
+        java.math.BigDecimal effectivePrice,
+        Integer discountPercent
+    );
 
     @Mapping(target = "images", expression = "java(sortMedia(product.getMediaAssets()))")
     @Mapping(target = "mainImage", expression = "java(resolveCoverUrl(product))")
     @Mapping(target = "galleryImages", expression = "java(resolveGalleryUrls(product))")
     @Mapping(target = "stockStatus", source = "stockStatus")
-    ProductDetailResponse toDetail(Product product, StockStatus stockStatus);
+    @Mapping(target = "promotionActive", source = "promotionActive")
+    @Mapping(target = "effectivePrice", source = "effectivePrice")
+    @Mapping(target = "discountPercent", source = "discountPercent")
+    ProductDetailResponse toDetail(
+        Product product,
+        StockStatus stockStatus,
+        boolean promotionActive,
+        java.math.BigDecimal effectivePrice,
+        Integer discountPercent
+    );
 
     default String resolveCoverUrl(Product product) {
         return product.getMediaAssets().stream()
