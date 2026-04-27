@@ -12,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
@@ -48,6 +49,21 @@ public class Product extends Auditable {
 
     @Column(name = "price", nullable = false)
     private BigDecimal price;
+
+    @Column(name = "promo_active", nullable = false)
+    private boolean promoActive;
+
+    @Column(name = "promo_price")
+    private BigDecimal promoPrice;
+
+    @Column(name = "promo_start_date")
+    private LocalDate promoStartDate;
+
+    @Column(name = "promo_end_date")
+    private LocalDate promoEndDate;
+
+    @Column(name = "promo_label")
+    private String promoLabel;
 
     @Column(name = "unit")
     private String unit;

@@ -15,7 +15,15 @@ public interface AdminProductMapper {
     @Mapping(target = "coverUrl", expression = "java(resolveCoverUrl(product))")
     @Mapping(target = "images",   expression = "java(resolveImageUrls(product))")
     @Mapping(target = "assets",   expression = "java(resolveAssets(product))")
-    ProductResponseDto toDto(Product product);
+    @Mapping(target = "promotionActive", source = "promotionActive")
+    @Mapping(target = "effectivePrice", source = "effectivePrice")
+    @Mapping(target = "discountPercent", source = "discountPercent")
+    ProductResponseDto toDto(
+        Product product,
+        boolean promotionActive,
+        java.math.BigDecimal effectivePrice,
+        Integer discountPercent
+    );
 
     default String resolveCoverUrl(Product product) {
         if (product.getMediaAssets() == null) return null;

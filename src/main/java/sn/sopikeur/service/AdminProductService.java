@@ -23,6 +23,7 @@ import sn.sopikeur.repo.MediaAssetRepository;
 import sn.sopikeur.repo.ProductRepository;
 import sn.sopikeur.repo.StockItemRepository;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -33,6 +34,7 @@ public class AdminProductService {
     private final MediaAssetRepository mediaAssetRepository;
     private final StockItemRepository stockItemRepository;
     private final AdminProductMapper adminProductMapper;
+    private final ProductPricingService productPricingService;
 
     @Transactional(readOnly = true)
     public PageResponse<ProductResponseDto> list(
@@ -69,7 +71,7 @@ public class AdminProductService {
 
         Page<Product> result = productRepository.findAll(spec, pageable);
         return PageResponse.<ProductResponseDto>builder()
-            .items(result.getContent().stream().map(adminProductMapper::toDto).toList())
+            .items(result.getContent().stream().map(this::toDto).toList())
             .page(safePage)
             .size(safeSize)
             .total(result.getTotalElements())
@@ -79,9 +81,7 @@ public class AdminProductService {
 
     @Transactional(readOnly = true)
     public ProductResponseDto get(Long id) {
-        return adminProductMapper.toDto(
-            productRepository.findById(id).orElseThrow(() -> new NotFoundException("Produit introuvable"))
-        );
+        return toDto(productRepository.findById(id).orElseThrow(() -> new NotFoundException("Produit introuvable")));
     }
 
     @Transactional
@@ -97,14 +97,14 @@ public class AdminProductService {
             stock.setPreorderAllowed(false);
             stockItemRepository.save(stock);
         }
-        return adminProductMapper.toDto(saved);
+        return toDto(saved);
     }
 
     @Transactional
     public ProductResponseDto update(Long id, ProductUpsertRequestDto dto) {
         Product p = productRepository.findById(id).orElseThrow(() -> new NotFoundException("Produit introuvable"));
         apply(p, dto);
-        return adminProductMapper.toDto(productRepository.save(p));
+        return toDto(productRepository.save(p));
     }
 
     @Transactional
@@ -129,6 +129,7 @@ public class AdminProductService {
     }
 
     private void apply(Product p, ProductUpsertRequestDto dto) {
+        validatePromotion(dto);
         p.setSku(dto.getSku());
         p.setSlug(dto.getSlug());
         p.setName(dto.getName());
@@ -136,9 +137,55 @@ public class AdminProductService {
         p.setStatus(dto.getStatus());
         p.setFeatured(Boolean.TRUE.equals(dto.getFeatured()));
         p.setPrice(dto.getPrice());
+        p.setPromoActive(Boolean.TRUE.equals(dto.getPromoActive()));
+        p.setPromoPrice(dto.getPromoPrice());
+        p.setPromoStartDate(dto.getPromoStartDate());
+        p.setPromoEndDate(dto.getPromoEndDate());
+        p.setPromoLabel(trimToNull(dto.getPromoLabel()));
         p.setUnit(dto.getUnit());
         p.setDimensions(dto.getDimensions());
         p.setDescriptionShort(dto.getDescriptionShort());
         p.setDescriptionLong(dto.getDescriptionLong());
+    }
+
+    private ProductResponseDto toDto(Product product) {
+        return adminProductMapper.toDto(
+            product,
+            productPricingService.isPromotionActive(product),
+            productPricingService.resolveEffectivePrice(product),
+            productPricingService.resolveDiscountPercent(product)
+        );
+    }
+
+    private void validatePromotion(ProductUpsertRequestDto dto) {
+        if (!Boolean.TRUE.equals(dto.getPromoActive())) {
+            dto.setPromoPrice(null);
+            dto.setPromoStartDate(null);
+            dto.setPromoEndDate(null);
+            dto.setPromoLabel(null);
+            return;
+        }
+        if (dto.getPromoPrice() == null) {
+            throw new IllegalArgumentException("Le prix promotionnel est obligatoire si la promotion est active.");
+        }
+        if (dto.getPromoPrice().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Le prix promotionnel ne peut pas etre negatif.");
+        }
+        if (dto.getPrice() == null || dto.getPromoPrice().compareTo(dto.getPrice()) >= 0) {
+            throw new IllegalArgumentException("Le prix promotionnel doit etre strictement inferieur au prix normal.");
+        }
+        if (dto.getPromoStartDate() != null && dto.getPromoEndDate() != null
+            && dto.getPromoEndDate().isBefore(dto.getPromoStartDate())) {
+            throw new IllegalArgumentException("La date de fin de promotion doit etre posterieure ou egale a la date de debut.");
+        }
+        dto.setPromoLabel(trimToNull(dto.getPromoLabel()));
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

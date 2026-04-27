@@ -60,6 +60,7 @@ public class OrderAdminService {
     private final ObjectMapper objectMapper;
     private final TrackingProperties trackingProperties;
     private final DocumentNumberService documentNumberService;
+    private final ProductPricingService productPricingService;
 
     @Transactional(readOnly = true)
     public PageResponse<OrderAdminResponseDto> list(int page, int size, String statusParam) {
@@ -102,7 +103,7 @@ public class OrderAdminService {
             .orElseThrow(() -> new NotFoundException("Produit introuvable"));
         BigDecimal currentTotal = resolvePersistedTotal(order);
 
-        BigDecimal unitPrice = product.getPrice();
+        BigDecimal unitPrice = productPricingService.resolveEffectivePrice(product);
         BigDecimal quantity = BigDecimal.valueOf(request.getQuantity());
         BigDecimal lineTotal = unitPrice.multiply(quantity);
 
