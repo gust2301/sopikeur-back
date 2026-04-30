@@ -26,6 +26,7 @@ import sn.sopikeur.repo.*;
 import sn.sopikeur.repo.order.OrderItemRepository;
 import sn.sopikeur.repo.order.OrderRepository;
 import sn.sopikeur.service.NotificationService;
+import sn.sopikeur.service.ProductPricingService;
 import sn.sopikeur.service.commerce.CommerceService;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,6 +42,7 @@ class OrderMappingTest {
     @Mock private OrderRepository orderRepository;
     @Mock private OrderItemRepository orderItemRepository;
     @Mock private NotificationService notificationService;
+    @Mock private ProductPricingService productPricingService;
 
     private CommerceService commerceService;
 
@@ -57,7 +59,8 @@ class OrderMappingTest {
             orderRepository,
             orderItemRepository,
             new ObjectMapper(),
-            notificationService
+            notificationService,
+            productPricingService
         );
     }
 
@@ -89,6 +92,7 @@ class OrderMappingTest {
 
         when(productRepository.findBySku("SPC006")).thenReturn(Optional.of(product));
         when(stockItemRepository.findByProductId(product.getId())).thenReturn(Optional.of(stockItem));
+        when(productPricingService.resolveEffectivePrice(product)).thenReturn(product.getPrice());
         when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -> {
             OrderEntity order = invocation.getArgument(0);
             order.setStatus(OrderStatus.PENDING_CONFIRMATION);

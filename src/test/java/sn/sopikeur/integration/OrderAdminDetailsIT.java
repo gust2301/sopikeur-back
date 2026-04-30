@@ -34,6 +34,21 @@ class OrderAdminDetailsIT extends BaseMySqlIT {
 
     @BeforeEach
     void ensureAdminCredentials() {
+        jdbcTemplate.update("DELETE FROM order_payments");
+        jdbcTemplate.update("DELETE FROM order_items");
+        jdbcTemplate.update("DELETE FROM orders");
+        jdbcTemplate.update(
+            """
+            UPDATE products
+            SET promo_active = FALSE,
+                promo_price = NULL,
+                promo_start_date = NULL,
+                promo_end_date = NULL,
+                promo_label = NULL
+            WHERE id = 1002
+            """
+        );
+
         String encodedPassword = passwordEncoder.encode(ADMIN_PASSWORD);
 
         int updated = jdbcTemplate.update(
@@ -101,8 +116,8 @@ class OrderAdminDetailsIT extends BaseMySqlIT {
             .andExpect(jsonPath("$.delivery.deliveryEtaDate").value("2026-04-12"))
             .andExpect(jsonPath("$.delivery.installationEtaDate").value("2026-04-15"))
             .andExpect(jsonPath("$.delivery.installationAmount").value(50000.00))
-            .andExpect(jsonPath("$.totalAmount").value(70000.00))
-            .andExpect(jsonPath("$.amountDue").value(70000.00))
+            .andExpect(jsonPath("$.totalAmount").value(20000.00))
+            .andExpect(jsonPath("$.amountDue").value(20000.00))
             .andExpect(jsonPath("$.delivery.internalNote").value("Commande VIP"))
             .andExpect(jsonPath("$.trackingUrl").value("http://localhost:4200/suivi/" + jdbcTemplate.queryForObject("SELECT public_id FROM orders WHERE id = ?", String.class, orderId)));
 

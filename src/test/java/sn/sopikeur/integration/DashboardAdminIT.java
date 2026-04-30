@@ -39,6 +39,10 @@ class DashboardAdminIT extends BaseMySqlIT {
 
     @BeforeEach
     void ensureAdminCredentials() {
+        jdbcTemplate.update("DELETE FROM order_payments");
+        jdbcTemplate.update("DELETE FROM order_items");
+        jdbcTemplate.update("DELETE FROM orders");
+
         String encodedPassword = passwordEncoder.encode(ADMIN_PASSWORD);
 
         int updated = jdbcTemplate.update(
@@ -77,23 +81,23 @@ class DashboardAdminIT extends BaseMySqlIT {
     }
 
     @Test
-    void dashboardRevenue_shouldOnlyCountPaidAmounts() throws Exception {
+    void dashboardRevenue_shouldOnlyCountConfirmedAndFulfilledOrderTotals() throws Exception {
         Long firstOrderId = createOrderAndReturnId("Client Revenue 1", "revenue1@sopikeur.sn");
         Long secondOrderId = createOrderAndReturnId("Client Revenue 2", "revenue2@sopikeur.sn");
 
         jdbcTemplate.update(
-            "UPDATE orders SET amount_total = 603500.00, amount_paid = 200000.00, amount_due = 403500.00, payment_status = 'PARTIALLY_PAID' WHERE id = ?",
+            "UPDATE orders SET status = 'CONFIRMED', amount_total = 603500.00, amount_paid = 200000.00, amount_due = 403500.00, payment_status = 'PARTIALLY_PAID' WHERE id = ?",
             firstOrderId
         );
         jdbcTemplate.update(
-            "UPDATE orders SET amount_total = 1000000.00, amount_paid = 0.00, amount_due = 1000000.00, payment_status = 'UNPAID' WHERE id = ?",
+            "UPDATE orders SET status = 'PENDING_CONFIRMATION', amount_total = 1000000.00, amount_paid = 0.00, amount_due = 1000000.00, payment_status = 'UNPAID' WHERE id = ?",
             secondOrderId
         );
 
         mockMvc.perform(get("/api/v1/admin/dashboard/stats")
                 .header("Authorization", "Bearer " + login()))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.totalRevenue").value(200000.00));
+            .andExpect(jsonPath("$.totalRevenue").value(603500.00));
     }
 
     @Test
