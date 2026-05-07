@@ -15,13 +15,19 @@ Backend Spring Boot V1 pour le front Angular Sopi Keur.
 
 ### 1) Démarrer MySQL
 ```bash
-docker compose up -d
+cp .env.dev.example .env.dev
+# Remplir .env.dev avec vos valeurs locales
+docker compose --env-file .env.dev up -d
 ```
 
 ### 2) Configurer l'application
-Le fichier `application.yml` pointe vers :
-- DB `sopikeur` / user `sopikeur` / password `sopikeur`
-- JWT secret en dev
+Charger `.env.dev` ou exporter les variables requises avant de lancer Spring Boot :
+
+- `SPRING_DATASOURCE_URL`
+- `SPRING_DATASOURCE_USERNAME`
+- `SPRING_DATASOURCE_PASSWORD`
+- `APP_JWT_SECRET`
+- `ADMIN_SUPER_PASSWORD_HASH`
 
 ### 3) Lancer l'API
 ```bash
@@ -43,7 +49,7 @@ Récupérer un token :
 ```bash
 curl -X POST http://localhost:8080/api/v1/admin/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"superadmin@sopikeur.sn","password":"password"}'
+  -d '{"email":"superadmin@sopikeur.sn","password":"<votre-mot-de-passe>"}'
 ```
 
 ### Base URL (prod)
