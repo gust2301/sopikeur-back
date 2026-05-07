@@ -2,8 +2,8 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/sopikeur?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
-    username: ${SPRING_DATASOURCE_USERNAME:sopikeur}
-    password: ${SPRING_DATASOURCE_PASSWORD:sopikeur}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -14,7 +14,7 @@ spring:
 
 app:
   jwt:
-    secret: ${APP_JWT_SECRET:98e811a7263b57336afc22944f78d650e8cc557d987c606199b1b8d30cf2e5ec699c6ce71b74d0d04dfa54039b0b1f2fbb945b6d0f4dcd1925343be287e63fa6}
+    secret: ${APP_JWT_SECRET:}
   cors:
     allowed-origins:
       - "http://localhost:4200"

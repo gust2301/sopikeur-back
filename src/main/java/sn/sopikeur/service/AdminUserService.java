@@ -60,6 +60,9 @@ public class AdminUserService {
 
     @Transactional
     public AdminUserResponseDto create(AdminUserUpsertRequestDto dto) {
+        if (dto.getPassword() == null || dto.getPassword().isBlank()) {
+            throw new IllegalArgumentException("Mot de passe obligatoire");
+        }
         AdminUserEntity user = new AdminUserEntity();
         user.setEmail(dto.getEmail());
         user.setFullName(dto.getFullName());
@@ -75,7 +78,9 @@ public class AdminUserService {
         user.setEmail(dto.getEmail());
         user.setFullName(dto.getFullName());
         user.setEnabled(dto.getEnabled() == null || dto.getEnabled());
-        user.setPasswordHash(passwordEncoder.encode(dto.getPassword()));
+        if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
+            user.setPasswordHash(passwordEncoder.encode(dto.getPassword()));
+        }
         return toDto(adminUserRepository.save(user));
     }
 
