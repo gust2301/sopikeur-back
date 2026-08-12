@@ -101,6 +101,22 @@ class DashboardAdminIT extends BaseMySqlIT {
     }
 
     @Test
+    void totalOrders_shouldExcludeCancelledOrders() throws Exception {
+        Long pendingOrderId = createOrderAndReturnId("Client Pending Count", "pending-count@sopikeur.sn");
+        Long confirmedOrderId = createOrderAndReturnId("Client Confirmed Count", "confirmed-count@sopikeur.sn");
+        Long cancelledOrderId = createOrderAndReturnId("Client Cancelled Count", "cancelled-count@sopikeur.sn");
+
+        jdbcTemplate.update("UPDATE orders SET status = 'PENDING_CONFIRMATION' WHERE id = ?", pendingOrderId);
+        jdbcTemplate.update("UPDATE orders SET status = 'CONFIRMED' WHERE id = ?", confirmedOrderId);
+        jdbcTemplate.update("UPDATE orders SET status = 'CANCELLED' WHERE id = ?", cancelledOrderId);
+
+        mockMvc.perform(get("/api/v1/admin/dashboard/stats")
+                .header("Authorization", "Bearer " + login()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalOrders").value(2));
+    }
+
+    @Test
     void recentOrders_shouldOnlyIncludeActiveOrders() throws Exception {
         Long pendingOrderId = createOrderAndReturnId("Client Pending", "pending@sopikeur.sn");
         Long confirmedOrderId = createOrderAndReturnId("Client Confirmed", "confirmed@sopikeur.sn");

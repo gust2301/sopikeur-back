@@ -144,6 +144,8 @@ public class OrderAdminService {
             throw new IllegalArgumentException("Impossible d'ajouter un service d'installation si la pose n'est pas demandee.");
         }
 
+        boolean isDiscount = serviceProduct.isDiscountService();
+
         OrderItem item = new OrderItem();
         item.setOrder(order);
         item.setLineType(OrderLineType.SERVICE);
@@ -155,9 +157,9 @@ public class OrderAdminService {
         BigDecimal quantity = BigDecimal.valueOf(request.getQuantity());
         item.setQty(quantity);
         item.setUnitPriceSnapshot(request.getUnitPrice());
-        item.setLineTotalSnapshot(request.getUnitPrice().multiply(quantity));
+        BigDecimal lineTotal = request.getUnitPrice().multiply(quantity);
+        item.setLineTotalSnapshot(isDiscount ? lineTotal.negate() : lineTotal);
         item.setLineNote(trimToNull(request.getNote()));
-        orderItemRepository.save(item);
 
         order.getItems().add(item);
         syncDerivedInstallationAmount(order);
@@ -165,6 +167,10 @@ public class OrderAdminService {
         if (isInstallationService(serviceProduct, legacyServiceType)) {
             newTotal = currentTotal.subtract(legacyInstallationFallback).add(item.getLineTotalSnapshot());
         }
+        if (newTotal.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Le montant de la remise depasse le total de la commande.");
+        }
+        orderItemRepository.save(item);
         syncFinancials(order, newTotal, resolvePaidAmount(order.getId()));
         orderRepository.save(order);
 
@@ -184,14 +190,23 @@ public class OrderAdminService {
             throw new IllegalArgumentException("Le prix unitaire ne peut pas etre negatif.");
         }
 
+        boolean isDiscount = item.getLineType() == OrderLineType.SERVICE
+            && item.getProduct() != null
+            && item.getProduct().isDiscountService();
+        BigDecimal lineTotal = request.getUnitPrice().multiply(request.getQuantity());
+
         item.setQty(request.getQuantity());
         item.setUnitPriceSnapshot(request.getUnitPrice());
-        item.setLineTotalSnapshot(request.getUnitPrice().multiply(request.getQuantity()));
+        item.setLineTotalSnapshot(isDiscount ? lineTotal.negate() : lineTotal);
         item.setLineNote(trimToNull(request.getNote()));
-        orderItemRepository.save(item);
 
         syncDerivedInstallationAmount(order);
-        syncFinancials(order, computeItemsTotal(order), resolvePaidAmount(order.getId()));
+        BigDecimal newTotal = computeItemsTotal(order);
+        if (newTotal.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Le montant de la remise depasse le total de la commande.");
+        }
+        orderItemRepository.save(item);
+        syncFinancials(order, newTotal, resolvePaidAmount(order.getId()));
         orderRepository.save(order);
 
         return toDto(order, true);
@@ -666,6 +681,9 @@ public class OrderAdminService {
             .quantity(item.getQty())
             .unitPrice(item.getUnitPriceSnapshot())
             .lineTotal(item.getLineTotalSnapshot())
+            .discountService(item.getLineType() == OrderLineType.SERVICE
+                && item.getProduct() != null
+                && item.getProduct().isDiscountService())
             .note(item.getLineNote())
             .build();
     }

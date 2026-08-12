@@ -136,6 +136,7 @@ public class AdminProductService {
         p.setType(dto.getType());
         p.setStatus(dto.getStatus());
         p.setFeatured(Boolean.TRUE.equals(dto.getFeatured()));
+        p.setDiscountService(Boolean.TRUE.equals(dto.getDiscountService()));
         p.setPrice(dto.getPrice());
         p.setPromoActive(Boolean.TRUE.equals(dto.getPromoActive()));
         p.setPromoPrice(dto.getPromoPrice());

@@ -46,7 +46,7 @@ public class DashboardAdminService {
     @Transactional(readOnly = true)
     public DashboardStatsDto getStats() {
         long totalProducts    = productRepository.count();
-        long totalOrders      = orderRepository.count();
+        long totalOrders      = orderRepository.countByStatusNot(OrderStatus.CANCELLED);
         long pendingOrders    = orderRepository.countByStatus(OrderStatus.PENDING_CONFIRMATION);
         long pendingQuotes    = quoteRequestRepository.countByStatus(QuoteStatus.NEW);
         long pendingContacts  = contactMessageRepository.countByStatus(ContactStatus.NEW);

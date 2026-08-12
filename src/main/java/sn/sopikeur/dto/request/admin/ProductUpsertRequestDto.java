@@ -23,6 +23,7 @@ public class ProductUpsertRequestDto {
     private ProductStatus status;
     @NotNull
     private Boolean featured;
+    private Boolean discountService;
     @NotNull
     @DecimalMin("0.0")
     private BigDecimal price;
