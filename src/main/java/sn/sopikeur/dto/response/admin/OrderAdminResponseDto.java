@@ -101,6 +101,7 @@ public class OrderAdminResponseDto {
         private BigDecimal quantity;
         private BigDecimal unitPrice;
         private BigDecimal lineTotal;
+        private boolean discountService;
         private String note;
     }
 

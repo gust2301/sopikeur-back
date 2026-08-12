@@ -82,6 +82,9 @@ public class Product extends Auditable {
     @Column(name = "featured", nullable = false)
     private boolean featured;
 
+    @Column(name = "discount_service", nullable = false)
+    private boolean discountService;
+
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<MediaAsset> mediaAssets = new ArrayList<>();
 }

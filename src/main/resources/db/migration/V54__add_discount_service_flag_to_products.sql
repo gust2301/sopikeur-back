@@ -1,0 +1,2 @@
+ALTER TABLE products
+    ADD COLUMN discount_service BOOLEAN NOT NULL DEFAULT FALSE;

@@ -19,6 +19,7 @@ public class ProductResponseDto {
     private ProductType type;
     private ProductStatus status;
     private boolean featured;
+    private boolean discountService;
     private BigDecimal price;
     private boolean promoActive;
     private BigDecimal promoPrice;
