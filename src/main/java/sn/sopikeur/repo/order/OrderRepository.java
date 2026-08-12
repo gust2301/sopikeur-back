@@ -19,6 +19,7 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
     List<OrderEntity> findByStatusInOrderByCreatedAtDesc(List<OrderStatus> statuses, Pageable pageable);
     Page<OrderEntity> findByStatus(OrderStatus status, Pageable pageable);
     long countByStatus(OrderStatus status);
+    long countByStatusNot(OrderStatus status);
 
     @EntityGraph(attributePaths = {"items", "items.product", "items.serviceType"})
     Optional<OrderEntity> findByPublicId(String publicId);
