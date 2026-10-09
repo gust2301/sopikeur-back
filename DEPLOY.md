@@ -13,6 +13,7 @@ Déploiement du backend Spring Boot sur le VPS OVH (VPS-3, Varsovie) avec Docker
 - [Mode isolé / mode live](#-mode-isolé--mode-live)
 - [Monitoring et dépannage](#-monitoring-et-dépannage)
 - [Installation initiale d'un VPS](#-installation-initiale-dun-vps)
+- [Sauvegardes](#-sauvegardes)
 - [Sécurité](#-sécurité)
 
 ---
@@ -49,6 +50,7 @@ Les fichiers de référence sont dans [`deploy/vps/`](deploy/vps/) et reproduise
 │   └── .env                     ← BIND_PREFIX (voir .env.example)
 └── sopiker/
     ├── deploy.sh                ← ce script (copié depuis le repo)
+    ├── backup.sh                ← sauvegarde quotidienne (timer systemd)
     ├── production/
     │   ├── compose.yml
     │   ├── compose.live.yml     ← accès Internet sortant (mode live)
@@ -164,6 +166,31 @@ cd /srv/proxy              && sudo docker compose up -d
 
 ---
 
+## 💾 Sauvegardes
+
+`/srv/sopiker/backup.sh` tourne chaque nuit à 02:30 UTC (`sopiker-backup.timer`, fichiers dans [`deploy/vps/systemd/`](deploy/vps/systemd/)) :
+
+- export SQL cohérent de production et staging (`--single-transaction`, routines, triggers, events) ;
+- archive de `/srv/sopiker` et `/srv/proxy` (`.env` compris) ;
+- fichiers en `600` dans `/var/backups/sopiker/{production,staging,config}`, conservés 14 jours.
+
+```bash
+sudo systemctl list-timers sopiker-backup.timer     # prochaine exécution
+sudo journalctl -u sopiker-backup.service -n 20     # résultat des dernières sauvegardes
+sudo systemctl start sopiker-backup.service         # sauvegarde immédiate (avant une opération risquée)
+```
+
+**Restaurer** (⚠️ écrase la base) :
+
+```bash
+zcat /var/backups/sopiker/production/production-<DATE>.sql.gz \
+  | sudo docker exec -i sopiker-mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot'
+```
+
+Installation : copier `backup.sh` en `/srv/sopiker/backup.sh` (`root`, `750`) et les deux fichiers `systemd/` dans `/etc/systemd/system/`, puis `sudo systemctl enable --now sopiker-backup.timer`.
+
+---
+
 ## 🔒 Sécurité
 
 - ✅ `.env` en `600`, jamais commités (voir `.gitignore`)
@@ -171,7 +198,8 @@ cd /srv/proxy              && sudo docker compose up -d
 - ✅ Backends sans port publié, joignables seulement par Caddy
 - ✅ Production et staging sur des réseaux séparés
 - ✅ SSH par clé uniquement, UFW actif
-- ⬜ Sauvegarde SQL automatique hors VPS (à mettre en place)
+- ✅ Sauvegarde SQL quotidienne sur le VPS, restauration testée
+- ⬜ Copie des sauvegardes hors du VPS (à mettre en place)
 - ⬜ Restreindre 80/443 aux IP Cloudflare (à évaluer)
 
 ---
