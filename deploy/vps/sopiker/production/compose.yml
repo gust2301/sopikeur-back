@@ -1,0 +1,77 @@
+# ==============================================================================
+# /srv/sopiker/production — MySQL 8.4 + backend Spring Boot
+# ==============================================================================
+# Réseaux :
+#   db    : interne, MySQL <-> backend uniquement
+#   edge  : interne, backend <-> Caddy partagé (/srv/proxy)
+# Aucun des deux n'a accès à Internet : en mode test, le backend ne peut
+# appeler ni paiements, ni e-mails, ni notifications.
+# Mise en service réelle : ajouter dans .env
+#   COMPOSE_FILE=compose.yml:compose.live.yml
+# (ajoute le réseau "egress" ; deploy.sh et docker compose l'appliquent ensuite).
+# ==============================================================================
+
+name: sopiker-production
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: sopiker-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_INITDB_SKIP_TZINFO: 1
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - db
+    mem_limit: 1g
+
+  backend:
+    image: ghcr.io/gust2301/sopikeur-back:${APP_IMAGE_TAG}
+    container_name: sopiker-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
+      APP_JWT_EXPIRATION_MINUTES: ${APP_JWT_EXPIRATION_MINUTES:-1440}
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx512m -Xms256m}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks:
+      - db
+      - edge
+    mem_limit: 1g
+
+volumes:
+  mysql_data:
+    name: sopiker_production_mysql
+
+networks:
+  db:
+    name: sopiker_production_db
+    internal: true
+  edge:
+    name: sopiker_production_edge
+    internal: true

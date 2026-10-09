@@ -1,0 +1,48 @@
+# ==============================================================================
+# /srv/proxy — Caddy partagé (HTTPS) pour tous les projets du VPS
+# ==============================================================================
+# Seul service publié sur 80/443. Chaque projet expose son backend sur son propre
+# réseau "edge" interne (sans Internet), que Caddy rejoint ici.
+# Ajouter un projet : créer sites/<projet>.caddy + déclarer son réseau edge.
+# Démarrer les projets AVANT le proxy (leurs réseaux edge doivent exister).
+# ==============================================================================
+
+name: proxy
+
+services:
+  caddy:
+    image: caddy:2
+    container_name: proxy-caddy
+    restart: unless-stopped
+    # Docker contourne UFW. Par défaut, écoute uniquement en local (tests).
+    # Ouverture publique (IPv4 + IPv6) : mettre "BIND_PREFIX=" dans .env.
+    ports:
+      - "${BIND_PREFIX-127.0.0.1:}80:80"
+      - "${BIND_PREFIX-127.0.0.1:}443:443"
+      - "${BIND_PREFIX-127.0.0.1:}443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/etc/caddy/sites:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - public
+      - sopiker-production-edge
+      - sopiker-staging-edge
+    mem_limit: 256m
+
+volumes:
+  caddy_data:
+    name: proxy_caddy_data
+  caddy_config:
+    name: proxy_caddy_config
+
+networks:
+  public:
+    name: proxy_public
+  sopiker-production-edge:
+    external: true
+    name: sopiker_production_edge
+  sopiker-staging-edge:
+    external: true
+    name: sopiker_staging_edge
