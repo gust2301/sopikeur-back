@@ -172,7 +172,8 @@ cd /srv/proxy              && sudo docker compose up -d
 
 - export SQL cohérent de production et staging (`--single-transaction`, routines, triggers, events) ;
 - archive de `/srv/sopiker` et `/srv/proxy` (`.env` compris) ;
-- fichiers en `600` dans `/var/backups/sopiker/{production,staging,config}`, conservés 14 jours.
+- fichiers en `600` dans `/var/backups/sopiker/{production,staging,config}`, conservés 14 jours ;
+- **copie hors VPS** : chaque fichier est chiffré avec [age](https://age-encryption.org) puis envoyé dans le bucket Cloudflare R2 `sopiker-backups` (conservé 30 jours). Le VPS n'a que la clé **publique** (`/etc/sopiker-backup/age-recipient.txt`) : il ne peut pas relire ce qu'il envoie. La clé privée est conservée hors du VPS (KeePassXC).
 
 ```bash
 sudo systemctl list-timers sopiker-backup.timer     # prochaine exécution
@@ -187,6 +188,14 @@ zcat /var/backups/sopiker/production/production-<DATE>.sql.gz \
   | sudo docker exec -i sopiker-mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot'
 ```
 
+**Restaurer depuis R2** (si le VPS est perdu) : télécharger le fichier `.age` depuis le dashboard R2, puis
+
+```bash
+age -d -i sopiker-backups-age.key production-<DATE>.sql.gz.age > production-<DATE>.sql.gz
+```
+
+Configuration R2 (une fois, clés saisies sans être affichées) : `sudo /srv/sopiker/backup.sh --setup-r2` — token R2 *Object Read & Write* limité au bucket `sopiker-backups`. Paquets requis : `age`, `rclone`.
+
 Installation : copier `backup.sh` en `/srv/sopiker/backup.sh` (`root`, `750`) et les deux fichiers `systemd/` dans `/etc/systemd/system/`, puis `sudo systemctl enable --now sopiker-backup.timer`.
 
 ---
@@ -199,7 +208,7 @@ Installation : copier `backup.sh` en `/srv/sopiker/backup.sh` (`root`, `750`) et
 - ✅ Production et staging sur des réseaux séparés
 - ✅ SSH par clé uniquement, UFW actif
 - ✅ Sauvegarde SQL quotidienne sur le VPS, restauration testée
-- ⬜ Copie des sauvegardes hors du VPS (à mettre en place)
+- ✅ Copie chiffrée des sauvegardes hors du VPS (Cloudflare R2)
 - ⬜ Restreindre 80/443 aux IP Cloudflare (à évaluer)
 
 ---
