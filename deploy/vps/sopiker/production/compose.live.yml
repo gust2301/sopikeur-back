@@ -1,0 +1,14 @@
+# Mise en service réelle : donne l'accès Internet sortant au backend
+# (paiements, e-mails, notifications). À n'utiliser qu'après la bascule DNS.
+# Activé via COMPOSE_FILE=compose.yml:compose.live.yml dans .env
+
+services:
+  backend:
+    networks:
+      - db
+      - edge
+      - egress
+
+networks:
+  egress:
+    name: sopiker_production_egress

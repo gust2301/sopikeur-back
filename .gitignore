@@ -37,6 +37,8 @@ build/
 .env.dev
 .env.local
 .env.staging
+.env
+.env.backup*
 *.pem
 *.key
 *.crt

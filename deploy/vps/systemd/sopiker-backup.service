@@ -1,0 +1,10 @@
+[Unit]
+Description=Sauvegarde quotidienne Sopiker (SQL + configuration)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/sopiker/backup.sh
+Nice=10
+IOSchedulingClass=idle
