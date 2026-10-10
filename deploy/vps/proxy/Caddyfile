@@ -1,0 +1,22 @@
+{
+    email contact@sopikeur.sn
+}
+
+# Blocs communs, réutilisables par tous les projets.
+(api_common) {
+    encode gzip
+
+    log {
+        output stdout
+        format console
+    }
+
+    @robots path /robots.txt
+    handle @robots {
+        header Content-Type "text/plain; charset=utf-8"
+        respond "User-agent: *\nDisallow: /\n" 200
+    }
+}
+
+# Un fichier par projet.
+import sites/*.caddy

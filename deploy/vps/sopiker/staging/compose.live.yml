@@ -1,0 +1,14 @@
+# Mise en service réelle : donne l'accès Internet sortant au backend staging
+# (paiements de test, e-mails, notifications). À n'utiliser qu'après la bascule DNS.
+# Activé via COMPOSE_FILE=compose.yml:compose.live.yml dans .env
+
+services:
+  backend_staging:
+    networks:
+      - db
+      - edge
+      - egress
+
+networks:
+  egress:
+    name: sopiker_staging_egress

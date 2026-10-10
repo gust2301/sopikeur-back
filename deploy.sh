@@ -1,14 +1,17 @@
 #!/bin/bash
 
 # ==============================================================================
-# Script de Déploiement - Sopikeur Backend
+# Script de Déploiement - Sopiker Backend (VPS, /srv/sopiker)
 # ==============================================================================
-# Usage: ./deploy.sh [SHA]
-# Exemple: ./deploy.sh abc1234
-#          ./deploy.sh latest
+# À exécuter SUR LE VPS, depuis n'importe quel dossier :
+#   sudo /srv/sopiker/deploy.sh <production|staging> <TAG>
+# Exemples :
+#   sudo /srv/sopiker/deploy.sh staging abc1234
+#   sudo /srv/sopiker/deploy.sh production abc1234
+# Rollback : relancer avec l'ancien TAG (affiché à la fin de chaque déploiement).
 # ==============================================================================
 
-set -e  # Exit on error
+set -euo pipefail
 
 # Couleurs pour output
 RED='\033[0;31m'
@@ -17,77 +20,75 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Variables
-ENV_FILE=".env.prod"
-COMPOSE_FILE="docker-compose.prod.yml"
-IMAGE_TAG="${1:-latest}"
+print_info()    { echo -e "${BLUE}ℹ ${1}${NC}"; }
+print_success() { echo -e "${GREEN}✓ ${1}${NC}"; }
+print_warning() { echo -e "${YELLOW}⚠ ${1}${NC}"; }
+print_error()   { echo -e "${RED}✗ ${1}${NC}"; exit 1; }
 
-# ==============================================================================
-# Fonctions Helper
-# ==============================================================================
-
-print_info() {
-    echo -e "${BLUE}ℹ ${1}${NC}"
-}
-
-print_success() {
-    echo -e "${GREEN}✓ ${1}${NC}"
-}
-
-print_warning() {
-    echo -e "${YELLOW}⚠ ${1}${NC}"
-}
-
-print_error() {
-    echo -e "${RED}✗ ${1}${NC}"
+usage() {
+    echo "Usage: sudo $0 <production|staging> <TAG>"
+    echo "  TAG : SHA court publié par GitHub Actions (ex: abc1234) ou 'latest'"
     exit 1
 }
+
+# ==============================================================================
+# Paramètres
+# ==============================================================================
+
+TARGET="${1:-}"
+IMAGE_TAG="${2:-}"
+SOPIKER_ROOT="${SOPIKER_ROOT:-/srv/sopiker}"
+
+case "$TARGET" in
+    production) SERVICE=backend;         CONTAINER=sopiker-backend ;;
+    staging)    SERVICE=backend_staging; CONTAINER=sopiker-backend-staging ;;
+    *) usage ;;
+esac
+[ -n "$IMAGE_TAG" ] || usage
+[[ "$IMAGE_TAG" =~ ^[A-Za-z0-9._-]+$ ]] || print_error "TAG invalide: $IMAGE_TAG"
+
+DIR="$SOPIKER_ROOT/$TARGET"
+ENV_FILE="$DIR/.env"
 
 # ==============================================================================
 # Vérifications pré-déploiement
 # ==============================================================================
 
-print_info "Déploiement de sopikeur-back:${IMAGE_TAG}"
+print_info "Déploiement de sopikeur-back:${IMAGE_TAG} sur ${TARGET}"
 echo ""
 
-# Vérifier que Docker est installé
-if ! command -v docker &> /dev/null; then
-    print_error "Docker n'est pas installé"
-fi
+docker info > /dev/null 2>&1 || print_error "Docker inaccessible (lancer avec sudo)"
+docker compose version > /dev/null 2>&1 || print_error "Docker Compose n'est pas installé"
+[ -f "$DIR/compose.yml" ] || print_error "Fichier $DIR/compose.yml introuvable"
+[ -f "$ENV_FILE" ] || print_error "Fichier $ENV_FILE introuvable"
 
-# Vérifier que Docker Compose est installé
-if ! docker compose version &> /dev/null; then
-    print_error "Docker Compose n'est pas installé"
-fi
+cd "$DIR"
 
-# Vérifier que docker-compose.prod.yml existe
-if [ ! -f "$COMPOSE_FILE" ]; then
-    print_error "Fichier $COMPOSE_FILE introuvable"
+if grep -q '^COMPOSE_FILE=.*compose.live.yml' "$ENV_FILE"; then
+    print_info "Mode: LIVE (accès Internet sortant activé)"
+else
+    print_warning "Mode: ISOLÉ (pas d'accès Internet : paiements, e-mails et notifications bloqués)"
 fi
 
 print_success "Vérifications OK"
 echo ""
 
 # ==============================================================================
-# Mise à jour du tag dans .env.prod
+# Mise à jour du tag dans .env
 # ==============================================================================
 
-print_info "Mise à jour de APP_IMAGE_TAG dans $ENV_FILE"
+PREVIOUS_TAG=$(grep -E '^APP_IMAGE_TAG=' "$ENV_FILE" | cut -d= -f2- || true)
+print_info "Tag actuel: ${PREVIOUS_TAG:-aucun} → nouveau: ${IMAGE_TAG}"
 
-# Backup de .env.prod
-cp "$ENV_FILE" "${ENV_FILE}.backup"
+# Backup de .env (mêmes permissions 600)
+cp -p "$ENV_FILE" "${ENV_FILE}.backup"
 print_success "Backup créé: ${ENV_FILE}.backup"
 
-# Mettre à jour ou ajouter APP_IMAGE_TAG
-if grep -q "^APP_IMAGE_TAG=" "$ENV_FILE"; then
-    # Remplacer la ligne existante
-    sed -i.tmp "s/^APP_IMAGE_TAG=.*/APP_IMAGE_TAG=${IMAGE_TAG}/" "$ENV_FILE"
-    rm -f "${ENV_FILE}.tmp"
+if grep -q '^APP_IMAGE_TAG=' "$ENV_FILE"; then
+    sed -i "s/^APP_IMAGE_TAG=.*/APP_IMAGE_TAG=${IMAGE_TAG}/" "$ENV_FILE"
 else
-    # Ajouter la ligne au début
-    echo "APP_IMAGE_TAG=${IMAGE_TAG}" | cat - "$ENV_FILE" > temp && mv temp "$ENV_FILE"
+    echo "APP_IMAGE_TAG=${IMAGE_TAG}" >> "$ENV_FILE"
 fi
-
 print_success "APP_IMAGE_TAG mis à jour: ${IMAGE_TAG}"
 echo ""
 
@@ -96,119 +97,65 @@ echo ""
 # ==============================================================================
 
 print_info "📦 Pull de l'image depuis GHCR"
-
-if docker compose -f "$COMPOSE_FILE" pull backend; then
-    print_success "Image téléchargée avec succès"
-else
-    print_error "Échec du pull de l'image. Vérifiez votre connexion et les credentials GHCR"
+if ! docker compose pull "$SERVICE"; then
+    cp -p "${ENV_FILE}.backup" "$ENV_FILE"
+    print_error "Échec du pull (tag inexistant ou 'docker login ghcr.io' manquant). .env restauré."
 fi
-
+print_success "Image téléchargée avec succès"
 echo ""
 
 # ==============================================================================
 # Déploiement
 # ==============================================================================
 
-print_info "Déploiement des services"
-
-if docker compose -f "$COMPOSE_FILE" up -d; then
-    print_success "Services démarrés"
-else
-    print_error "Échec du démarrage des services"
-fi
-
+print_info "Déploiement du service ${SERVICE}"
+docker compose up -d "$SERVICE" || print_error "Échec du démarrage des services"
+print_success "Services démarrés"
 echo ""
 
 # ==============================================================================
-# Vérification du déploiement
+# Vérification du déploiement (healthcheck Docker, timeout 180s)
 # ==============================================================================
 
-print_info "Vérification de la santé du backend (peut prendre jusqu'à 60s)"
-
-# Attendre que le container soit démarré
-sleep 5
-
-# Vérifier le status du container
-if docker ps | grep -q "sopikeur-backend"; then
-    print_success "Container backend démarré"
-else
-    print_error "Container backend non trouvé"
-fi
-
-# Attendre que l'application soit prête (healthcheck)
-print_info "Attente du healthcheck (timeout 90s)..."
-
-COUNTER=0
-MAX_ATTEMPTS=30
-
-while [ $COUNTER -lt $MAX_ATTEMPTS ]; do
-    if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1; then
-        print_success "Application répond correctement !"
-        break
-    fi
-
+print_info "Attente du healthcheck (timeout 180s)..."
+STATUS=starting
+for _ in $(seq 1 60); do
+    STATUS=$(docker inspect -f '{{.State.Health.Status}}' "$CONTAINER" 2>/dev/null || echo missing)
+    [ "$STATUS" = healthy ] || [ "$STATUS" = unhealthy ] && break
     echo -n "."
     sleep 3
-    COUNTER=$((COUNTER+1))
 done
-
 echo ""
 
-if [ $COUNTER -eq $MAX_ATTEMPTS ]; then
-    print_warning "Timeout atteint. L'application met plus de temps que prévu à démarrer."
-    print_info "Vérifiez les logs: docker compose -f $COMPOSE_FILE logs backend"
+if [ "$STATUS" = healthy ]; then
+    print_success "Health check: healthy ✓"
 else
-    # Test de l'endpoint health
-    HEALTH_STATUS=$(curl -s http://localhost:8080/actuator/health | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
-
-    if [ "$HEALTH_STATUS" = "UP" ]; then
-        print_success "Health check: UP ✓"
-    else
-        print_warning "Health check: $HEALTH_STATUS"
-    fi
+    print_warning "Health check: ${STATUS}"
+    print_info "Logs: docker compose -f $DIR/compose.yml logs --tail=100 $SERVICE"
+    print_info "Rollback: sudo $0 $TARGET ${PREVIOUS_TAG:-<ANCIEN_TAG>}"
+    exit 1
 fi
-
 echo ""
 
 # ==============================================================================
 # Résumé et logging
 # ==============================================================================
 
-print_info "Résumé du déploiement"
-echo ""
+echo "Environnement:     ${TARGET}"
 echo "Image déployée:    ghcr.io/gust2301/sopikeur-back:${IMAGE_TAG}"
 echo "Date/Heure:        $(date)"
-echo "Services actifs:   $(docker compose -f $COMPOSE_FILE ps --services --filter "status=running" | wc -l)"
 echo ""
 
-# Logger le déploiement
-echo "$(date +%Y-%m-%d\ %H:%M:%S) - Deployed: ${IMAGE_TAG}" >> deploy-history.txt
-print_success "Déploiement logged dans deploy-history.txt"
-
+echo "$(date +%Y-%m-%d\ %H:%M:%S) - ${TARGET} - Deployed: ${IMAGE_TAG} (previous: ${PREVIOUS_TAG:-none})" >> "$DIR/deploy-history.txt"
+print_success "Déploiement logged dans $DIR/deploy-history.txt"
 echo ""
 print_success "Déploiement terminé avec succès !"
 echo ""
 
-# ==============================================================================
-# Commandes utiles post-déploiement
-# ==============================================================================
-
-print_info "Commandes utiles:"
+print_info "Commandes utiles (dans $DIR) :"
+echo "  Logs:      sudo docker compose logs -f $SERVICE"
+echo "  Status:    sudo docker compose ps"
 echo ""
-echo "  Voir les logs:              docker compose -f $COMPOSE_FILE logs -f backend"
-echo "  Status des services:        docker compose -f $COMPOSE_FILE ps"
-echo "  Health check:               curl http://localhost:8080/actuator/health"
-echo "  Redémarrer backend:         docker compose -f $COMPOSE_FILE restart backend"
-echo "  Arrêter tous les services:  docker compose -f $COMPOSE_FILE down"
-echo ""
-
-# ==============================================================================
-# Instructions de rollback
-# ==============================================================================
-
-if [ "$IMAGE_TAG" != "latest" ]; then
-    print_info "Pour rollback, exécutez:"
-    echo ""
-    echo "  ./deploy.sh [ANCIEN_SHA]"
-    echo ""
+if [ -n "$PREVIOUS_TAG" ] && [ "$PREVIOUS_TAG" != "$IMAGE_TAG" ]; then
+    print_info "Pour rollback: sudo $0 $TARGET $PREVIOUS_TAG"
 fi
