@@ -1,0 +1,58 @@
+# ==============================================================================
+# /srv/monitoring — Beszel : tableau de bord de supervision du VPS
+# ==============================================================================
+# hub   : interface web (monitor.sopikeur.sn via Caddy + Cloudflare Access),
+#         jamais publiée sur Internet (seulement 127.0.0.1:8090 pour l'agent)
+# agent : métriques de l'hôte (CPU, RAM, disque, réseau) et des conteneurs ;
+#         le hub l'interroge par un socket Unix partagé (pas de port ouvert)
+# ==============================================================================
+
+name: monitoring
+
+services:
+  hub:
+    image: henrygd/beszel:0.21.0
+    container_name: beszel-hub
+    restart: unless-stopped
+    environment:
+      APP_URL: https://monitor.sopikeur.sn
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - hub_data:/beszel_data
+      - socket:/beszel_socket
+    networks:
+      - edge
+      - default
+    mem_limit: 256m
+
+  agent:
+    image: henrygd/beszel-agent:0.21.0
+    container_name: beszel-agent
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - agent.env   # KEY=<clé publique affichée par le hub>
+    environment:
+      LISTEN: /beszel_socket/beszel.sock
+      HUB_URL: http://127.0.0.1:8090
+    volumes:
+      - socket:/beszel_socket
+      - agent_data:/var/lib/beszel-agent
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    mem_limit: 128m
+
+volumes:
+  hub_data:
+    name: monitoring_hub_data
+  agent_data:
+    name: monitoring_agent_data
+  socket:
+    name: monitoring_socket
+
+networks:
+  edge:
+    name: monitoring_edge
+    internal: true
+  default:
+    name: monitoring_default

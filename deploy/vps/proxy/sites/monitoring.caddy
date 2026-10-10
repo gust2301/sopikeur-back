@@ -1,0 +1,16 @@
+# ==============================================================================
+# Supervision — monitor.sopikeur.sn (Beszel, /srv/monitoring)
+# ==============================================================================
+# Accès protégé par Cloudflare Access (code e-mail) + compte Beszel.
+# Certificat interne : Access intercepte la validation Let's Encrypt, et seul
+# Cloudflare (SSL Full) joint cette origine (pare-feu 80/443 limité à Cloudflare).
+monitor.sopikeur.sn {
+    tls internal
+    encode gzip
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Robots-Tag "noindex, nofollow"
+        -Server
+    }
+    reverse_proxy beszel-hub:8090
+}
