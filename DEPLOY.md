@@ -211,4 +211,18 @@ Installation : copier `backup.sh` en `/srv/sopiker/backup.sh` (`root`, `750`) et
 - ✅ SSH par clé uniquement, UFW actif
 - ✅ Sauvegarde SQL quotidienne sur le VPS, restauration testée
 - ✅ Copie chiffrée des sauvegardes hors du VPS (Cloudflare R2)
-- ⬜ Restreindre 80/443 aux IP Cloudflare (à évaluer)
+- ✅ 80/443 acceptés uniquement depuis les IP Cloudflare (`sopiker-cf-firewall`, voir ci-dessous)
+
+### Filtrage Cloudflare
+
+Docker contourne UFW : `/usr/local/sbin/sopiker-cf-firewall` ([`deploy/vps/firewall/`](deploy/vps/firewall/)) n'accepte 80/443 que depuis les [plages Cloudflare](https://www.cloudflare.com/ips/), en IPv4 (chaîne `DOCKER-USER`) et en IPv6 (`INPUT`, où passe `docker-proxy`). Appliqué au démarrage et à chaque redémarrage de Docker (`sopiker-cf-firewall.service`), liste rafraîchie chaque lundi (`sopiker-cf-firewall-refresh.timer`). SSH n'est pas concerné.
+
+Conséquence : une requête directe vers l'IP du VPS (par exemple `curl --resolve api.sopikeur.sn:443:57.131.201.16`) est bloquée. Pour tester sans Cloudflare, le faire **depuis le VPS** avec `127.0.0.1`.
+
+```bash
+sudo journalctl -u sopiker-cf-firewall.service -n 5   # état
+sudo /usr/local/sbin/sopiker-cf-firewall --off        # urgence : tout rouvrir
+sudo systemctl restart sopiker-cf-firewall.service    # réactiver
+```
+
+Installation : script en `/usr/local/sbin/sopiker-cf-firewall` (`root`, `750`), les trois fichiers `systemd/sopiker-cf-firewall*` dans `/etc/systemd/system/`, puis `sudo systemctl enable --now sopiker-cf-firewall.service sopiker-cf-firewall-refresh.timer`.

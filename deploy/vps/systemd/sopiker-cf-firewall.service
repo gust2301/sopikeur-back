@@ -1,0 +1,13 @@
+[Unit]
+Description=N'accepter le web (80/443) que depuis Cloudflare
+After=docker.service ufw.service network-online.target
+Wants=network-online.target
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/sopiker-cf-firewall
+
+[Install]
+WantedBy=multi-user.target docker.service
