@@ -43,7 +43,7 @@ jobs:
           printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           echo "57.131.201.16 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM52PN7tEDr6i/cM08PT63qN/DhN7YvXjkXWL6WHcJsJ" > ~/.ssh/known_hosts
-          for attempt in 1 2 3; do
+          for _ in 1 2 3; do
             if ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
                  -o ConnectTimeout=20 deploy@57.131.201.16 status > status.txt 2>&1; then
               rc=0; break
