@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# /usr/local/sbin/sopiker-deploy-ssh — seule commande permise à l'utilisateur deploy
+# ==============================================================================
+# Forcée par ~deploy/.ssh/authorized_keys (command=..., restrict) : quelle que
+# soit la commande demandée par GitHub Actions, seul « <staging|production> <sha> »
+# est accepté, puis transmis à /srv/sopiker/deploy.sh via sudo.
+# ==============================================================================
+
+set -euo pipefail
+
+read -r target tag extra <<< "${SSH_ORIGINAL_COMMAND:-}"
+
+if [[ ! "${target:-}" =~ ^(staging|production)$ ]] || [[ ! "${tag:-}" =~ ^[0-9a-f]{7,40}$ ]] || [ -n "${extra:-}" ]; then
+    echo "Commande refusée. Attendu : <staging|production> <sha>" >&2
+    logger -t sopiker-deploy "refusé: ${SSH_ORIGINAL_COMMAND:-<vide>}"
+    exit 2
+fi
+
+logger -t sopiker-deploy "déploiement $target $tag depuis ${SSH_CLIENT%% *}"
+exec sudo -n /srv/sopiker/deploy.sh "$target" "$tag"

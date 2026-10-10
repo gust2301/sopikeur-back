@@ -8,7 +8,8 @@ Déploiement du backend Spring Boot sur le VPS OVH (VPS-3, Varsovie) avec Docker
 
 - [Architecture](#️-architecture)
 - [Organisation du VPS](#-organisation-du-vps)
-- [Déployer une nouvelle version](#-déployer-une-nouvelle-version)
+- [Déploiement automatique](#-déploiement-automatique)
+- [Déployer à la main](#-déployer-une-nouvelle-version-à-la-main)
 - [Rollback](#️-rollback)
 - [Mode isolé / mode live](#-mode-isolé--mode-live)
 - [Monitoring et dépannage](#-monitoring-et-dépannage)
@@ -64,7 +65,20 @@ Docker nécessite `sudo` sur le VPS (l'utilisateur `ubuntu` n'est pas dans le gr
 
 ---
 
-## 🎯 Déployer une nouvelle version
+## 🤖 Déploiement automatique
+
+Chaque push sur `develop` déploie **staging**, chaque push sur `master` déploie **production** (job `deploy` de `docker-image.yml`, après les tests et la publication de l'image), puis vérifie l'API publique.
+
+- GitHub se connecte en SSH avec l'utilisateur **`deploy`**, dont la clé ne peut lancer **que** `<staging|production> <sha>` : commande forcée [`sopiker-deploy-ssh`](deploy/vps/deploy-user/sopiker-deploy-ssh), `restrict` (ni shell, ni tunnel), `sudo` limité à `deploy.sh` ([sudoers](deploy/vps/deploy-user/sudoers-sopiker-deploy)). Chaque tentative est journalisée : `sudo journalctl -t sopiker-deploy`.
+- Clé privée : secret du dépôt `VPS_DEPLOY_KEY`. Sans ce secret, le job affiche un avertissement et ne déploie rien.
+- Identité du VPS épinglée dans le workflow (clé d'hôte ed25519) : un autre serveur serait refusé.
+- Rollback : relancer le workflow d'un ancien commit (*Re-run jobs*), ou `deploy.sh` à la main.
+
+**Surveillance** : [`monitoring.yml`](.github/workflows/monitoring.yml) vérifie toutes les 15 minutes l'API (prod, staging), le site et la sauvegarde de la nuit (`/status/backup`). Un échec envoie un e-mail GitHub. GitHub suspend les workflows planifiés d'un dépôt public après 60 jours sans commit : un e-mail prévient, il suffit de le réactiver dans *Actions*.
+
+---
+
+## 🎯 Déployer une nouvelle version à la main
 
 1. **Merger / pousser** sur `develop` (staging) ou `master` (production) → GitHub Actions publie l'image.
 2. **Récupérer le SHA court** du commit (7 caractères), par ex. via `git log --oneline -n 5` ou la page *Actions*.
