@@ -13,7 +13,7 @@ monitor.sopikeur.sn {
         -Server
     }
     # Nom et icône Sopiker pour l'app iPhone (remplacent ceux de Beszel)
-    @branding path /static/manifest.json /static/icon.png /static/icon.svg /static/brand.css /static/brand.js
+    @branding path /static/manifest.json /static/icon.png /static/icon-192.png /static/icon-512.png /static/icon.svg /static/brand.css /static/brand.js
     handle @branding {
         root * /srv/branding/monitoring
         uri strip_prefix /static
