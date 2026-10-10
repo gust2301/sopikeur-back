@@ -1,6 +1,7 @@
 # ==============================================================================
 # /srv/sopiker/staging — MySQL 8.4 + backend Spring Boot (profil staging)
 # ==============================================================================
+# .env (Compose + MySQL) et app.env (backend, sans le mot de passe root).
 # Totalement séparé de la production : réseaux, volume et .env distincts.
 # Réseaux internes sans Internet (voir production/compose.yml).
 # Mise en service réelle : ajouter dans .env
@@ -37,16 +38,14 @@ services:
     image: ghcr.io/gust2301/sopikeur-back:${APP_IMAGE_TAG}
     container_name: sopiker-backend-staging
     restart: unless-stopped
+    # Variables applicatives uniquement (pas de MYSQL_ROOT_PASSWORD) : voir app.env.example
     env_file:
-      - .env
+      - app.env
     environment:
       SPRING_PROFILES_ACTIVE: staging
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql_staging:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
-      APP_JWT_SECRET: ${APP_JWT_SECRET}
-      APP_JWT_EXPIRATION_MINUTES: ${APP_JWT_EXPIRATION_MINUTES:-1440}
-      JAVA_OPTS: ${JAVA_OPTS:--Xmx384m -Xms192m}
     depends_on:
       mysql_staging:
         condition: service_healthy

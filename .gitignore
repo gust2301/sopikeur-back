@@ -38,6 +38,7 @@ build/
 .env.local
 .env.staging
 .env
+app.env
 .env.backup*
 *.pem
 *.key

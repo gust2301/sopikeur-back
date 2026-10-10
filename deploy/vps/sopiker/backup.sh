@@ -34,7 +34,11 @@ r2_load() {
         RCLONE_CONFIG_R2_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
         RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
         RCLONE_CONFIG_R2_ENDPOINT="https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com" \
-        RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true
+        RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true \
+        RCLONE_LOG_LEVEL=ERROR
+    # R2 renvoie 501 sur le HEAD ?versionId= que rclone 1.60 fait après chaque envoi.
+    # On le désactive ; l'intégrité reste vérifiée par R2 via Content-MD5 (copyto d'un fichier).
+    export RCLONE_CONFIG_R2_NO_HEAD=true
 }
 
 if [ "${1:-}" = "--setup-r2" ]; then
@@ -48,7 +52,8 @@ if [ "${1:-}" = "--setup-r2" ]; then
     chmod 600 "$R2_ENV.tmp" && mv "$R2_ENV.tmp" "$R2_ENV"
     r2_load
     probe="setup-test-$STAMP.txt"
-    if echo ok | rclone rcat "r2:$R2_BUCKET/$probe" && rclone deletefile "r2:$R2_BUCKET/$probe"; then
+    if echo ok | rclone rcat "r2:$R2_BUCKET/$probe" && rclone cat "r2:$R2_BUCKET/$probe" | grep -qx ok \
+        && rclone deletefile "r2:$R2_BUCKET/$probe"; then
         echo "R2 OK : écriture et suppression réussies dans $R2_BUCKET"
     else
         echo "ERREUR : accès R2 refusé (vérifier clés, bucket, permission Object Read & Write)" >&2
@@ -86,10 +91,12 @@ find "$DEST" -type f \( -name '*.sql.gz' -o -name '*.tar.gz' \) -mtime +"$KEEP_D
 # ------------------------------------------------------------------------------
 if [ -f "$R2_ENV" ] && [ -f "$RECIPIENT" ]; then
     r2_load
+    enc=$(mktemp)
+    trap 'rm -f "$enc"' EXIT
     while IFS= read -r file; do
         rel="${file#"$DEST"/}"
-        if age -R "$RECIPIENT" "$file" | rclone rcat "r2:$R2_BUCKET/$rel.age"; then
-            echo "OK R2 $rel.age"
+        if age -R "$RECIPIENT" -o "$enc" "$file" && rclone copyto "$enc" "r2:$R2_BUCKET/$rel.age"; then
+            echo "OK R2 $rel.age ($(stat -c %s "$enc") octets)"
         else
             echo "ERREUR: envoi R2 $rel" >&2
             FAILED=1
@@ -100,6 +107,21 @@ if [ -f "$R2_ENV" ] && [ -f "$RECIPIENT" ]; then
 else
     echo "ATTENTION: R2 non configuré, aucune copie hors VPS (sudo $0 --setup-r2)" >&2
     FAILED=1
+fi
+
+# ------------------------------------------------------------------------------
+# État pour la surveillance (lu par /usr/local/sbin/sopiker-status, appelé par
+# .github/workflows/monitoring.yml) : dates et résultat uniquement
+# ------------------------------------------------------------------------------
+STATUS_DIR="${STATUS_DIR:-/var/lib/sopiker}"
+mkdir -p "$STATUS_DIR"
+if [ -d "$STATUS_DIR" ]; then
+    now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    last_ok=$(grep -o '"last_success":"[^"]*"' "$STATUS_DIR/backup-status.json" 2>/dev/null | cut -d'"' -f4 || true)
+    [ "$FAILED" -eq 0 ] && last_ok="$now"
+    ok=$([ "$FAILED" -eq 0 ] && echo true || echo false)
+    printf '{"last_run":"%s","ok":%s,"last_success":"%s"}\n' "$now" "$ok" "${last_ok:-never}" > "$STATUS_DIR/backup-status.json.tmp"
+    chmod 644 "$STATUS_DIR/backup-status.json.tmp" && mv "$STATUS_DIR/backup-status.json.tmp" "$STATUS_DIR/backup-status.json"
 fi
 
 exit "$FAILED"

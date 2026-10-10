@@ -1,6 +1,9 @@
 # ==============================================================================
 # /srv/sopiker/production — MySQL 8.4 + backend Spring Boot
 # ==============================================================================
+# Fichiers d'environnement :
+#   .env     : Compose et MySQL (tag d'image, identifiants MySQL, root compris)
+#   app.env  : backend (JWT, paiements, VAPID...) — sans le mot de passe root
 # Réseaux :
 #   db    : interne, MySQL <-> backend uniquement
 #   edge  : interne, backend <-> Caddy partagé (/srv/proxy)
@@ -40,16 +43,14 @@ services:
     image: ghcr.io/gust2301/sopikeur-back:${APP_IMAGE_TAG}
     container_name: sopiker-backend
     restart: unless-stopped
+    # Variables applicatives uniquement (pas de MYSQL_ROOT_PASSWORD) : voir app.env.example
     env_file:
-      - .env
+      - app.env
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
-      APP_JWT_SECRET: ${APP_JWT_SECRET}
-      APP_JWT_EXPIRATION_MINUTES: ${APP_JWT_EXPIRATION_MINUTES:-1440}
-      JAVA_OPTS: ${JAVA_OPTS:--Xmx512m -Xms256m}
     depends_on:
       mysql:
         condition: service_healthy

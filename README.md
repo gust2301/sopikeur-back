@@ -59,28 +59,23 @@ curl -X POST http://localhost:8080/api/v1/admin/auth/login \
 
 ## 🐳 Déploiement Production (Docker + CI/CD)
 
-### 📚 Documentation Complète
+### 📚 Documentation
 
-- **[DEPLOY.md](DEPLOY.md)** - Guide complet de déploiement sur VPS
+- **[DEPLOY.md](DEPLOY.md)** - Déploiement, sauvegardes et exploitation du VPS
 - **[DOCKER_CHOICES.md](DOCKER_CHOICES.md)** - Explications des choix techniques
-- **[INFRASTRUCTURE_SUMMARY.md](INFRASTRUCTURE_SUMMARY.md)** - Vue d'ensemble de l'infrastructure
 
-### 🚀 Quick Start (Production)
+### 🚀 Déployer (sur le VPS)
 
 ```bash
-nano .env.prod  # Changer TOUS les secrets
-
-# 2. Login GHCR
-echo "GITHUB_TOKEN" | docker login ghcr.io -u USERNAME --password-stdin
-
-# 3. Déployer
-./deploy.sh abc1234  # Remplacer par le SHA voulu
+ssh -i ~/.ssh/sopikeur_mac_ovh ubuntu@57.131.201.16
+sudo /srv/sopiker/deploy.sh staging abc1234      # puis :
+sudo /srv/sopiker/deploy.sh production abc1234
 ```
 
 ### 🔄 Workflow CI/CD
 
 ```
-Git Push → GitHub Actions → GHCR → VPS Deploy
+Git Push → GitHub Actions → GHCR → deploy.sh sur le VPS
 ```
 
 - **Image**: `ghcr.io/gust2301/sopikeur-back`
@@ -92,9 +87,9 @@ Git Push → GitHub Actions → GHCR → VPS Deploy
 
 ```
 ├── Dockerfile                    # Multi-stage optimisé
-├── docker-compose.prod.yml       # MySQL + Backend
 ├── .github/workflows/            # CI/CD GitHub Actions
-└── deploy.sh                     # Script helper déploiement
+├── deploy.sh                     # Déploiement sur le VPS (/srv/sopiker/deploy.sh)
+└── deploy/vps/                   # Configs du VPS : proxy Caddy, production, staging, sauvegardes
 ```
 
 ---

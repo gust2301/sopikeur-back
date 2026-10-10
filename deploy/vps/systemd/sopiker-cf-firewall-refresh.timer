@@ -1,0 +1,11 @@
+[Unit]
+Description=Rafraîchir chaque semaine les plages IP Cloudflare autorisées
+
+[Timer]
+OnCalendar=Mon *-*-* 04:00:00 UTC
+RandomizedDelaySec=30m
+Persistent=true
+Unit=sopiker-cf-firewall-refresh.service
+
+[Install]
+WantedBy=timers.target

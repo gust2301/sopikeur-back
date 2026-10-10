@@ -1,7 +1,7 @@
 # ==============================================================================
 # GitHub Actions Workflow - Build & Push Docker Image to GHCR
 # ==============================================================================
-# Déclenché sur: push sur main/master et tags
+# Déclenché sur: push sur main/master/develop et tags ; déploie develop -> staging, master -> production
 # Build l'image Docker et la push vers GitHub Container Registry (GHCR)
 # Tags créés: latest + SHA court (ex: abc1234)
 # ==============================================================================
@@ -130,6 +130,45 @@ jobs:
           echo "📦 Tags:"
           echo "${{ steps.meta.outputs.tags }}"
           echo ""
-          echo "📝 To deploy this image, update APP_IMAGE_TAG in .env.prod with:"
-          echo "   - latest (for the latest build)"
-          echo "   - ${GITHUB_SHA::7} (for this specific commit)"
+          echo "🚀 develop/master : déploiement automatique (job deploy)."
+          echo "   À la main sur le VPS : sudo /srv/sopiker/deploy.sh <production|staging> ${GITHUB_SHA::7}"
+
+  # ----------------------------------------------------------------------------
+  # Déploiement automatique sur le VPS (develop -> staging, master -> production)
+  # ----------------------------------------------------------------------------
+  # La clé VPS_DEPLOY_KEY (secret du dépôt) n'ouvre que la commande
+  # « <staging|production> <sha> » de l'utilisateur deploy (voir deploy/vps/deploy-user).
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    environment: ${{ github.ref == 'refs/heads/develop' && 'staging' || 'production' }}
+    concurrency:
+      group: deploy-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions: {}
+    env:
+      TARGET: ${{ github.ref == 'refs/heads/develop' && 'staging' || 'production' }}
+
+    steps:
+      - name: Déployer sur le VPS
+        id: deploy
+        env:
+          DEPLOY_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "::warning title=Déploiement ignoré::Secret VPS_DEPLOY_KEY absent, déployer à la main avec deploy.sh"
+            exit 0
+          fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "57.131.201.16 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM52PN7tEDr6i/cM08PT63qN/DhN7YvXjkXWL6WHcJsJ" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            deploy@57.131.201.16 "$TARGET ${GITHUB_SHA::7}"
+          # Vérification sur le VPS (conteneurs, API via Caddy) : en HTTPS public,
+          # le Bot Fight Mode de Cloudflare renvoie 403 aux serveurs de GitHub.
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            deploy@57.131.201.16 status
+          rm -f ~/.ssh/deploy_key
+          echo "✅ ${GITHUB_SHA::7} déployé sur $TARGET"
