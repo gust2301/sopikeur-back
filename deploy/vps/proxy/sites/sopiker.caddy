@@ -19,16 +19,6 @@ api.sopikeur.sn {
         respond "<!doctype html><meta name='robots' content='noindex,nofollow'><title>API</title>" 200
     }
 
-    # État de la dernière sauvegarde (écrit par /srv/sopiker/backup.sh),
-    # lu par la surveillance GitHub Actions. Dates et résultat uniquement.
-    handle /status/backup {
-        root * /srv/status
-        rewrite * /backup.json
-        header Content-Type "application/json"
-        header Cache-Control "no-store"
-        file_server
-    }
-
     @actuatorAllowed path /actuator/health /actuator/health/* /actuator/info
     handle @actuatorAllowed {
         reverse_proxy sopiker-backend:8080 {

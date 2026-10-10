@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# /usr/local/sbin/sopiker-status — état du VPS pour la surveillance GitHub Actions
+# ==============================================================================
+# Appelé par « ssh deploy@VPS status » (voir sopiker-deploy-ssh). Code de sortie
+# 0 = tout va bien, 1 = au moins un problème (le workflow échoue -> e-mail).
+# N'affiche que des états, jamais de secret.
+# ==============================================================================
+
+set -uo pipefail
+
+FAIL=0
+ok()  { echo "OK      $*"; }
+bad() { echo "PROBLÈME $*"; FAIL=1; }
+
+for c in proxy-caddy sopiker-backend sopiker-mysql sopiker-backend-staging sopiker-mysql-staging; do
+    state=$(docker inspect -f '{{.State.Status}}{{if .State.Health}}/{{.State.Health.Status}}{{end}}' "$c" 2>/dev/null || echo absent)
+    case "$state" in
+        running|running/healthy) ok "conteneur $c ($state)" ;;
+        *) bad "conteneur $c ($state)" ;;
+    esac
+done
+
+for host in api.sopikeur.sn api-staging.sopikeur.sn; do
+    code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 --resolve "$host:443:127.0.0.1" "https://$host/actuator/health" || true)
+    [ "$code" = 200 ] && ok "$host via Caddy (HTTP $code)" || bad "$host via Caddy (HTTP $code)"
+done
+
+status_file=/var/lib/sopiker/backup-status.json
+if [ -f "$status_file" ]; then
+    last=$(grep -o '"last_success":"[^"]*"' "$status_file" | cut -d'"' -f4)
+    ok_flag=$(grep -o '"ok":[a-z]*' "$status_file" | cut -d: -f2)
+    age_h=$(( ( $(date +%s) - $(date -d "$last" +%s 2>/dev/null || echo 0) ) / 3600 ))
+    if [ "$ok_flag" = true ] && [ "$age_h" -lt 26 ]; then
+        ok "sauvegarde réussie il y a ${age_h} h ($last)"
+    else
+        bad "sauvegarde : dernier essai ok=$ok_flag, dernière réussite $last (il y a ${age_h} h)"
+    fi
+else
+    bad "sauvegarde : aucun état ($status_file absent)"
+fi
+
+disk=$(df --output=pcent / | tail -1 | tr -dc 0-9)
+[ "$disk" -lt 85 ] && ok "disque ${disk} %" || bad "disque ${disk} % (seuil 85 %)"
+
+exit "$FAIL"

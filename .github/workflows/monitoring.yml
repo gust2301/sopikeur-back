@@ -1,10 +1,12 @@
 # ==============================================================================
 # Surveillance du VPS Sopiker
 # ==============================================================================
-# Toutes les 15 minutes : API production et staging, site, sauvegarde de la nuit.
-# Un échec = e-mail GitHub « Run failed » (notifications Actions du compte).
+# Toutes les 15 minutes, « ssh deploy@VPS status » (sopiker-status) vérifie :
+# conteneurs, API prod/staging via Caddy, sauvegarde de moins de 26 h, disque.
+# Passe par SSH et non par HTTPS : le Bot Fight Mode de Cloudflare bloque les
+# serveurs de GitHub. VPS injoignable ou problème = échec = e-mail GitHub.
 # Attention : GitHub suspend les workflows planifiés d'un dépôt public après
-# 60 jours sans commit ; un e-mail prévient avant, il suffit de le réactiver.
+# 60 jours sans commit ; un e-mail prévient, il suffit de le réactiver.
 # ==============================================================================
 
 name: Monitoring VPS
@@ -19,42 +21,40 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: monitoring
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
-      - name: API et site
+      - name: État du VPS
+        env:
+          DEPLOY_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
         run: |
-          fail=0
-          for url in \
-            https://api.sopikeur.sn/actuator/health \
-            https://api-staging.sopikeur.sn/actuator/health \
-            https://sopikeur.sn/; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --retry 2 --retry-delay 15 --retry-all-errors -m 20 "$url" || true)
-            echo "$url -> HTTP $code"
-            if [ "$code" != 200 ]; then
-              echo "::error title=Site injoignable::$url répond HTTP $code"
-              fail=1
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "::error title=Surveillance inactive::Secret VPS_DEPLOY_KEY absent"
+            exit 1
+          fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "57.131.201.16 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM52PN7tEDr6i/cM08PT63qN/DhN7YvXjkXWL6WHcJsJ" > ~/.ssh/known_hosts
+          for attempt in 1 2 3; do
+            if ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+                 -o ConnectTimeout=20 deploy@57.131.201.16 status > status.txt 2>&1; then
+              rc=0; break
+            else
+              rc=$?; sleep 20
             fi
           done
-          exit $fail
-
-      - name: Sauvegarde de la nuit
-        if: always()
-        run: |
-          status=$(curl -fsS --retry 2 --retry-delay 15 --retry-all-errors -m 20 https://api.sopikeur.sn/status/backup)
-          echo "$status"
-          ok=$(echo "$status" | jq -r .ok)
-          last=$(echo "$status" | jq -r .last_success)
-          age_h=$(( ( $(date +%s) - $(date -d "$last" +%s) ) / 3600 ))
-          echo "Dernière sauvegarde réussie : $last (il y a $age_h h)"
-          if [ "$ok" != true ]; then
-            echo "::error title=Sauvegarde en échec::La dernière sauvegarde a échoué (voir journalctl -u sopiker-backup.service)"
-            exit 1
+          rm -f ~/.ssh/deploy_key
+          cat status.txt
+          grep '^PROBLÈME' status.txt | while read -r line; do echo "::error title=VPS Sopiker::${line#PROBLÈME }"; done
+          if [ "$rc" -ne 0 ] && ! grep -q '^PROBLÈME' status.txt; then
+            echo "::error title=VPS injoignable::Connexion SSH impossible (code $rc)"
           fi
-          if [ "$age_h" -ge 26 ]; then
-            echo "::error title=Sauvegarde trop ancienne::Aucune sauvegarde réussie depuis $age_h h"
-            exit 1
-          fi
+          exit "$rc"
