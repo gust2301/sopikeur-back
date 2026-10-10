@@ -1,0 +1,60 @@
+# ==============================================================================
+# Surveillance du VPS Sopiker
+# ==============================================================================
+# Toutes les 15 minutes : API production et staging, site, sauvegarde de la nuit.
+# Un échec = e-mail GitHub « Run failed » (notifications Actions du compte).
+# Attention : GitHub suspend les workflows planifiés d'un dépôt public après
+# 60 jours sans commit ; un e-mail prévient avant, il suffit de le réactiver.
+# ==============================================================================
+
+name: Monitoring VPS
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/monitoring.yml'
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: API et site
+        run: |
+          fail=0
+          for url in \
+            https://api.sopikeur.sn/actuator/health \
+            https://api-staging.sopikeur.sn/actuator/health \
+            https://sopikeur.sn/; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --retry 2 --retry-delay 15 --retry-all-errors -m 20 "$url" || true)
+            echo "$url -> HTTP $code"
+            if [ "$code" != 200 ]; then
+              echo "::error title=Site injoignable::$url répond HTTP $code"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Sauvegarde de la nuit
+        if: always()
+        run: |
+          status=$(curl -fsS --retry 2 --retry-delay 15 --retry-all-errors -m 20 https://api.sopikeur.sn/status/backup)
+          echo "$status"
+          ok=$(echo "$status" | jq -r .ok)
+          last=$(echo "$status" | jq -r .last_success)
+          age_h=$(( ( $(date +%s) - $(date -d "$last" +%s) ) / 3600 ))
+          echo "Dernière sauvegarde réussie : $last (il y a $age_h h)"
+          if [ "$ok" != true ]; then
+            echo "::error title=Sauvegarde en échec::La dernière sauvegarde a échoué (voir journalctl -u sopiker-backup.service)"
+            exit 1
+          fi
+          if [ "$age_h" -ge 26 ]; then
+            echo "::error title=Sauvegarde trop ancienne::Aucune sauvegarde réussie depuis $age_h h"
+            exit 1
+          fi

@@ -109,4 +109,18 @@ else
     FAILED=1
 fi
 
+# ------------------------------------------------------------------------------
+# État pour la surveillance (servi par Caddy sur https://api.sopikeur.sn/status/backup,
+# vérifié par .github/workflows/monitoring.yml) : dates et résultat uniquement
+# ------------------------------------------------------------------------------
+STATUS_DIR="${STATUS_DIR:-/srv/proxy/status}"
+if [ -d "$STATUS_DIR" ]; then
+    now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    last_ok=$(grep -o '"last_success":"[^"]*"' "$STATUS_DIR/backup.json" 2>/dev/null | cut -d'"' -f4 || true)
+    [ "$FAILED" -eq 0 ] && last_ok="$now"
+    ok=$([ "$FAILED" -eq 0 ] && echo true || echo false)
+    printf '{"last_run":"%s","ok":%s,"last_success":"%s"}\n' "$now" "$ok" "${last_ok:-never}" > "$STATUS_DIR/backup.json.tmp"
+    chmod 644 "$STATUS_DIR/backup.json.tmp" && mv "$STATUS_DIR/backup.json.tmp" "$STATUS_DIR/backup.json"
+fi
+
 exit "$FAILED"
