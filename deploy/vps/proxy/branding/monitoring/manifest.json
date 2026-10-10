@@ -1,0 +1,11 @@
+{
+  "name": "Sopiker Monitoring",
+  "short_name": "Sopiker VPS",
+  "icons": [
+    { "src": "icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ],
+  "start_url": "../",
+  "display": "standalone",
+  "background_color": "#202225",
+  "theme_color": "#202225"
+}
