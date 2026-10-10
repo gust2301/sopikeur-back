@@ -210,9 +210,3 @@ Installation : copier `backup.sh` en `/srv/sopiker/backup.sh` (`root`, `750`) et
 - ✅ Sauvegarde SQL quotidienne sur le VPS, restauration testée
 - ✅ Copie chiffrée des sauvegardes hors du VPS (Cloudflare R2)
 - ⬜ Restreindre 80/443 aux IP Cloudflare (à évaluer)
-
----
-
-## 🗄️ Ancien serveur (Public Cloud b2-7)
-
-`docker-compose.prod.yml` et `Caddyfile` à la racine du repo décrivent l'ancien serveur (`~/deploy/sopiker`, conteneurs `sopikeur-*`). Ils sont conservés pendant la période de retour arrière et seront supprimés avec l'instance.

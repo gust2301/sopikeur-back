@@ -130,6 +130,6 @@ jobs:
           echo "📦 Tags:"
           echo "${{ steps.meta.outputs.tags }}"
           echo ""
-          echo "📝 To deploy this image, update APP_IMAGE_TAG in .env.prod with:"
+          echo "📝 To deploy this image on the VPS: sudo /srv/sopiker/deploy.sh <production|staging> with:"
           echo "   - latest (for the latest build)"
           echo "   - ${GITHUB_SHA::7} (for this specific commit)"
