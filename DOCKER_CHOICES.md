@@ -143,7 +143,7 @@ ENTRYPOINT ["java", "-jar", "/app/app.jar"]
 ```dockerfile
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
 ```
-→ Configurable via `.env.prod` ou `docker run -e JAVA_OPTS="..."`
+→ Configurable via `.env` (/srv/sopiker/<env>/.env) ou `docker run -e JAVA_OPTS="..."`
 
 ### Exemples d'utilisation:
 
@@ -245,7 +245,7 @@ docker pull ghcr.io/gust2301/sopikeur-back:abc1234
 
 **Avantages du SHA:**
 - ✅ **Traçabilité**: `git show abc1234` pour voir le code exact déployé
-- ✅ **Rollback instantané**: Changer `APP_IMAGE_TAG=def5678` dans `.env.prod`
+- ✅ **Rollback instantané**: Changer `APP_IMAGE_TAG=def5678` dans `.env` (/srv/sopiker/<env>/.env)
 - ✅ **Audit**: Garder un log des déploiements avec SHA + date
 - ✅ **Blue/Green deploy**: Déployer `abc1234` sur un nouveau container avant de switcher
 
