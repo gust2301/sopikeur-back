@@ -1,0 +1,31 @@
+/* Logo et nom Sopiker à la place du logo Beszel (lien « Home » en haut à gauche) */
+a[aria-label="Home"] > svg {
+    display: none !important;
+}
+a[aria-label="Home"] {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 0.6rem;
+    text-decoration: none;
+}
+a[aria-label="Home"]::before {
+    content: "";
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    border-radius: 9999px;
+    background: url("/static/icon.png") center / contain no-repeat;
+}
+a[aria-label="Home"]::after {
+    content: "Sopiker Monitoring";
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    color: hsl(var(--foreground, 0 0% 98%));
+}
+@media (max-width: 640px) {
+    a[aria-label="Home"]::after {
+        content: "Sopiker";
+    }
+}

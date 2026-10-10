@@ -26,6 +26,19 @@ services:
       - default
     mem_limit: 256m
 
+  brand:
+    # Filtre de marque (logo/nom Sopiker) entre Caddy et le hub, voir brand-proxy.conf
+    image: nginx:1.27-alpine
+    container_name: beszel-brand
+    restart: unless-stopped
+    volumes:
+      - ./brand-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - edge
+    depends_on:
+      - hub
+    mem_limit: 32m
+
   agent:
     image: henrygd/beszel-agent:0.21.0
     container_name: beszel-agent
