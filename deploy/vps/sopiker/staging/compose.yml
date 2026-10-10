@@ -16,6 +16,8 @@ services:
     image: mysql:8.4
     container_name: sopiker-mysql-staging
     restart: unless-stopped
+    # Petite base : réglages mémoire réduits (pic observé : 11 connexions)
+    command: ["--performance-schema=OFF", "--innodb-buffer-pool-size=64M", "--max-connections=30"]
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
