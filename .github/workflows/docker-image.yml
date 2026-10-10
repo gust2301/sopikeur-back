@@ -149,7 +149,6 @@ jobs:
     permissions: {}
     env:
       TARGET: ${{ github.ref == 'refs/heads/develop' && 'staging' || 'production' }}
-      API_URL: ${{ github.ref == 'refs/heads/develop' && 'https://api-staging.sopikeur.sn' || 'https://api.sopikeur.sn' }}
 
     steps:
       - name: Déployer sur le VPS
@@ -167,12 +166,9 @@ jobs:
           echo "57.131.201.16 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM52PN7tEDr6i/cM08PT63qN/DhN7YvXjkXWL6WHcJsJ" > ~/.ssh/known_hosts
           ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
             deploy@57.131.201.16 "$TARGET ${GITHUB_SHA::7}"
+          # Vérification sur le VPS (conteneurs, API via Caddy) : en HTTPS public,
+          # le Bot Fight Mode de Cloudflare renvoie 403 aux serveurs de GitHub.
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            deploy@57.131.201.16 status
           rm -f ~/.ssh/deploy_key
-          echo "deployed=true" >> "$GITHUB_OUTPUT"
-
-      - name: Vérifier l'API publique
-        if: steps.deploy.outputs.deployed == 'true'
-        run: |
-          curl -fsS --retry 5 --retry-delay 10 --retry-all-errors -m 20 "$API_URL/actuator/health"
-          echo
           echo "✅ ${GITHUB_SHA::7} déployé sur $TARGET"
