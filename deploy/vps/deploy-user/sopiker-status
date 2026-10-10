@@ -13,7 +13,9 @@ FAIL=0
 ok()  { echo "OK      $*"; }
 bad() { echo "PROBLÈME $*"; FAIL=1; }
 
-for c in proxy-caddy sopiker-backend sopiker-mysql sopiker-backend-staging sopiker-mysql-staging; do
+CONTAINERS="proxy-caddy sopiker-backend sopiker-mysql sopiker-backend-staging sopiker-mysql-staging"
+[ -d /srv/erfi ] && CONTAINERS="$CONTAINERS erfi-web erfi-mysql"
+for c in $CONTAINERS; do
     state=$(docker inspect -f '{{.State.Status}}{{if .State.Health}}/{{.State.Health.Status}}{{end}}' "$c" 2>/dev/null || echo absent)
     case "$state" in
         running|running/healthy) ok "conteneur $c ($state)" ;;
@@ -21,8 +23,11 @@ for c in proxy-caddy sopiker-backend sopiker-mysql sopiker-backend-staging sopik
     esac
 done
 
-for host in api.sopikeur.sn api-staging.sopikeur.sn; do
-    code=$(curl -s -o /dev/null -w '%{http_code}' -m 10 --resolve "$host:443:127.0.0.1" "https://$host/actuator/health" || true)
+HOSTS="api.sopikeur.sn/actuator/health api-staging.sopikeur.sn/actuator/health"
+[ -d /srv/erfi ] && HOSTS="$HOSTS ongerfi.org/"
+for target in $HOSTS; do
+    host=${target%%/*}
+    code=$(curl -sk -o /dev/null -w '%{http_code}' -m 10 --resolve "$host:443:127.0.0.1" "https://$target" || true)
     [ "$code" = 200 ] && ok "$host via Caddy (HTTP $code)" || bad "$host via Caddy (HTTP $code)"
 done
 

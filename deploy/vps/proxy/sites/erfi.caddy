@@ -1,0 +1,27 @@
+# ==============================================================================
+# ERFI — ongerfi.org (projet /srv/erfi, dépôt gust2301/erfi)
+# ==============================================================================
+# TEMPORAIRE : « tls internal » tant que le DNS pointe encore vers LWS
+# (Let's Encrypt ne peut pas valider). À retirer à la bascule DNS.
+
+ongerfi.org {
+    tls internal
+    encode gzip
+
+    log {
+        output stdout
+        format console
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        -Server
+    }
+
+    reverse_proxy erfi-web:80
+}
+
+www.ongerfi.org {
+    tls internal
+    redir https://ongerfi.org{uri} permanent
+}

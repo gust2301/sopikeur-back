@@ -2,7 +2,7 @@
 # ==============================================================================
 # /srv/sopiker/backup.sh — sauvegarde quotidienne Sopiker (lancée par systemd)
 # ==============================================================================
-# - Export SQL cohérent (--single-transaction) de production et staging
+# - Export SQL cohérent (--single-transaction) de production, staging et ERFI (si /srv/erfi)
 # - Archive des configurations (/srv/sopiker, /srv/proxy, .env compris)
 # - Fichiers en 600 dans /var/backups/sopiker, rétention KEEP_DAYS jours
 # - Copie hors VPS : chiffrée avec age (clé publique seule sur le VPS) puis
@@ -62,7 +62,9 @@ if [ "${1:-}" = "--setup-r2" ]; then
     exit 0
 fi
 
-for spec in production:sopiker-mysql staging:sopiker-mysql-staging; do
+DATABASES="production:sopiker-mysql staging:sopiker-mysql-staging"
+[ -d /srv/erfi ] && DATABASES="$DATABASES erfi:erfi-mysql"
+for spec in $DATABASES; do
     env_name="${spec%%:*}"
     container="${spec#*:}"
     mkdir -p "$DEST/$env_name"
@@ -81,7 +83,10 @@ for spec in production:sopiker-mysql staging:sopiker-mysql-staging; do
 done
 
 mkdir -p "$DEST/config"
-tar -C / -czf "$DEST/config/config-$STAMP.tar.gz" srv/sopiker srv/proxy
+CONFIG_DIRS="srv/sopiker srv/proxy"
+[ -d /srv/erfi ] && CONFIG_DIRS="$CONFIG_DIRS srv/erfi"
+# shellcheck disable=SC2086
+tar -C / -czf "$DEST/config/config-$STAMP.tar.gz" $CONFIG_DIRS
 echo "OK config $(stat -c %s "$DEST/config/config-$STAMP.tar.gz") octets"
 
 find "$DEST" -type f \( -name '*.sql.gz' -o -name '*.tar.gz' \) -mtime +"$KEEP_DAYS" -delete
