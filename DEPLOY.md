@@ -54,7 +54,8 @@ Les fichiers de référence sont dans [`deploy/vps/`](deploy/vps/) et reproduise
     ├── production/
     │   ├── compose.yml
     │   ├── compose.live.yml     ← accès Internet sortant (mode live)
-    │   ├── .env                 ← secrets, chmod 600, jamais commité
+    │   ├── .env                 ← Compose + MySQL (root compris), chmod 600
+    │   ├── app.env              ← variables du backend, sans le mot de passe root, chmod 600
     │   └── deploy-history.txt
     └── staging/                 ← même structure
 ```
@@ -154,7 +155,7 @@ curl -s --resolve api.sopikeur.sn:443:127.0.0.1 https://api.sopikeur.sn/actuator
 1. Ubuntu LTS, accès SSH par clé uniquement (`PasswordAuthentication no`, `PermitRootLogin no`), UFW avec 22 ouvert.
 2. Docker Engine + Compose depuis le [dépôt officiel](https://docs.docker.com/engine/install/ubuntu/), logs Docker en rotation (`/etc/docker/daemon.json`).
 3. Copier `deploy/vps/proxy` → `/srv/proxy` et `deploy/vps/sopiker` → `/srv/sopiker`, plus `deploy.sh` → `/srv/sopiker/deploy.sh` (`chmod 750`).
-4. Créer chaque `.env` depuis son `.env.example` (`chmod 600`).
+4. Créer chaque `.env` et `app.env` depuis leurs `.example` (`chmod 600`).
 5. `sudo docker login ghcr.io -u gust2301` avec un PAT GitHub limité à `read:packages`.
 6. Démarrer les projets **avant** le proxy (le proxy rejoint leurs réseaux `edge`) :
 
@@ -204,6 +205,7 @@ Installation : copier `backup.sh` en `/srv/sopiker/backup.sh` (`root`, `750`) et
 
 - ✅ `.env` en `600`, jamais commités (voir `.gitignore`)
 - ✅ MySQL sur réseau interne uniquement, aucun port publié
+- ✅ Le backend ne reçoit pas le mot de passe root MySQL (`app.env` séparé de `.env`)
 - ✅ Backends sans port publié, joignables seulement par Caddy
 - ✅ Production et staging sur des réseaux séparés
 - ✅ SSH par clé uniquement, UFW actif
