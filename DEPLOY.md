@@ -74,7 +74,7 @@ Chaque push sur `develop` déploie **staging**, chaque push sur `master` déploi
 - Identité du VPS épinglée dans le workflow (clé d'hôte ed25519) : un autre serveur serait refusé.
 - Rollback : relancer le workflow d'un ancien commit (*Re-run jobs*), ou `deploy.sh` à la main.
 
-**Surveillance** : [`monitoring.yml`](.github/workflows/monitoring.yml) vérifie toutes les 15 minutes l'API (prod, staging), le site et la sauvegarde de la nuit (`/status/backup`). Un échec envoie un e-mail GitHub. GitHub suspend les workflows planifiés d'un dépôt public après 60 jours sans commit : un e-mail prévient, il suffit de le réactiver dans *Actions*.
+**Surveillance** : [`monitoring.yml`](.github/workflows/monitoring.yml) lance toutes les 15 minutes `ssh deploy@VPS status` ([`sopiker-status`](deploy/vps/deploy-user/sopiker-status)) : conteneurs, API prod/staging via Caddy, sauvegarde de moins de 26 h, disque < 85 %. VPS injoignable ou problème = e-mail GitHub. Elle passe par SSH car le Bot Fight Mode de Cloudflare bloque les serveurs de GitHub. GitHub suspend les workflows planifiés d'un dépôt public après 60 jours sans commit : un e-mail prévient, il suffit de le réactiver dans *Actions*. Sur le VPS : `sudo /usr/local/sbin/sopiker-status`.
 
 ---
 
