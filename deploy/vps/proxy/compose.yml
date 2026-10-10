@@ -29,6 +29,7 @@ services:
       - public
       - sopiker-production-edge
       - sopiker-staging-edge
+      - erfi-edge
     mem_limit: 256m
 
 volumes:
@@ -46,3 +47,6 @@ networks:
   sopiker-staging-edge:
     external: true
     name: sopiker_staging_edge
+  erfi-edge:
+    external: true
+    name: erfi_edge

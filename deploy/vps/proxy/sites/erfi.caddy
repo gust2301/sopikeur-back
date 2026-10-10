@@ -1,0 +1,24 @@
+# ==============================================================================
+# ERFI — ongerfi.org (projet /srv/erfi, dépôt gust2301/erfi)
+# ==============================================================================
+# DNS chez Cloudflare (proxied, SSL Full), certificats Let's Encrypt via HTTP-01.
+
+ongerfi.org {
+    encode gzip
+
+    log {
+        output stdout
+        format console
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        -Server
+    }
+
+    reverse_proxy erfi-web:80
+}
+
+www.ongerfi.org {
+    redir https://ongerfi.org{uri} permanent
+}
