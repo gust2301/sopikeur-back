@@ -67,7 +67,7 @@ Docker nécessite `sudo` sur le VPS (l'utilisateur `ubuntu` n'est pas dans le gr
 
 ## 🤖 Déploiement automatique
 
-Chaque push sur `develop` déploie **staging**, chaque push sur `master` déploie **production** (job `deploy` de `docker-image.yml`, après les tests et la publication de l'image), puis vérifie l'API publique.
+Chaque push sur `develop` déploie **staging**, chaque push sur `master` déploie **production** (job `deploy` de `docker-image.yml`, après les tests et la publication de l'image), puis vérifie le VPS par `status` (conteneurs, API via Caddy).
 
 - GitHub se connecte en SSH avec l'utilisateur **`deploy`**, dont la clé ne peut lancer **que** `<staging|production> <sha>` : commande forcée [`sopiker-deploy-ssh`](deploy/vps/deploy-user/sopiker-deploy-ssh), `restrict` (ni shell, ni tunnel), `sudo` limité à `deploy.sh` ([sudoers](deploy/vps/deploy-user/sudoers-sopiker-deploy)). Chaque tentative est journalisée : `sudo journalctl -t sopiker-deploy`.
 - Clé privée : secret du dépôt `VPS_DEPLOY_KEY`. Sans ce secret, le job affiche un avertissement et ne déploie rien.
