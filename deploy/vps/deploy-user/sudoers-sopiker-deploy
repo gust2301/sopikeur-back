@@ -1,0 +1,3 @@
+# /etc/sudoers.d/sopiker-deploy (chmod 440, vérifier avec visudo -cf)
+# L'utilisateur deploy ne peut lancer que deploy.sh (environnement + tag) et sopiker-status (sans argument).
+deploy ALL=(root) NOPASSWD: /srv/sopiker/deploy.sh staging *, /srv/sopiker/deploy.sh production *, /usr/local/sbin/sopiker-status ""

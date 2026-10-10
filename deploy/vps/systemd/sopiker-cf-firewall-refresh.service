@@ -1,0 +1,7 @@
+[Unit]
+Description=Rafraîchir les plages IP Cloudflare autorisées
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sopiker-cf-firewall

@@ -8,7 +8,8 @@ Déploiement du backend Spring Boot sur le VPS OVH (VPS-3, Varsovie) avec Docker
 
 - [Architecture](#️-architecture)
 - [Organisation du VPS](#-organisation-du-vps)
-- [Déployer une nouvelle version](#-déployer-une-nouvelle-version)
+- [Déploiement automatique](#-déploiement-automatique)
+- [Déployer à la main](#-déployer-une-nouvelle-version-à-la-main)
 - [Rollback](#️-rollback)
 - [Mode isolé / mode live](#-mode-isolé--mode-live)
 - [Monitoring et dépannage](#-monitoring-et-dépannage)
@@ -54,7 +55,8 @@ Les fichiers de référence sont dans [`deploy/vps/`](deploy/vps/) et reproduise
     ├── production/
     │   ├── compose.yml
     │   ├── compose.live.yml     ← accès Internet sortant (mode live)
-    │   ├── .env                 ← secrets, chmod 600, jamais commité
+    │   ├── .env                 ← Compose + MySQL (root compris), chmod 600
+    │   ├── app.env              ← variables du backend, sans le mot de passe root, chmod 600
     │   └── deploy-history.txt
     └── staging/                 ← même structure
 ```
@@ -63,7 +65,20 @@ Docker nécessite `sudo` sur le VPS (l'utilisateur `ubuntu` n'est pas dans le gr
 
 ---
 
-## 🎯 Déployer une nouvelle version
+## 🤖 Déploiement automatique
+
+Chaque push sur `develop` déploie **staging**, chaque push sur `master` déploie **production** (job `deploy` de `docker-image.yml`, après les tests et la publication de l'image), puis vérifie l'API publique.
+
+- GitHub se connecte en SSH avec l'utilisateur **`deploy`**, dont la clé ne peut lancer **que** `<staging|production> <sha>` : commande forcée [`sopiker-deploy-ssh`](deploy/vps/deploy-user/sopiker-deploy-ssh), `restrict` (ni shell, ni tunnel), `sudo` limité à `deploy.sh` ([sudoers](deploy/vps/deploy-user/sudoers-sopiker-deploy)). Chaque tentative est journalisée : `sudo journalctl -t sopiker-deploy`.
+- Clé privée : secret du dépôt `VPS_DEPLOY_KEY`. Sans ce secret, le job affiche un avertissement et ne déploie rien.
+- Identité du VPS épinglée dans le workflow (clé d'hôte ed25519) : un autre serveur serait refusé.
+- Rollback : relancer le workflow d'un ancien commit (*Re-run jobs*), ou `deploy.sh` à la main.
+
+**Surveillance** : [`monitoring.yml`](.github/workflows/monitoring.yml) lance toutes les 15 minutes `ssh deploy@VPS status` ([`sopiker-status`](deploy/vps/deploy-user/sopiker-status)) : conteneurs, API prod/staging via Caddy, sauvegarde de moins de 26 h, disque < 85 %. VPS injoignable ou problème = e-mail GitHub. Elle passe par SSH car le Bot Fight Mode de Cloudflare bloque les serveurs de GitHub. GitHub suspend les workflows planifiés d'un dépôt public après 60 jours sans commit : un e-mail prévient, il suffit de le réactiver dans *Actions*. Sur le VPS : `sudo /usr/local/sbin/sopiker-status`.
+
+---
+
+## 🎯 Déployer une nouvelle version à la main
 
 1. **Merger / pousser** sur `develop` (staging) ou `master` (production) → GitHub Actions publie l'image.
 2. **Récupérer le SHA court** du commit (7 caractères), par ex. via `git log --oneline -n 5` ou la page *Actions*.
@@ -154,7 +169,7 @@ curl -s --resolve api.sopikeur.sn:443:127.0.0.1 https://api.sopikeur.sn/actuator
 1. Ubuntu LTS, accès SSH par clé uniquement (`PasswordAuthentication no`, `PermitRootLogin no`), UFW avec 22 ouvert.
 2. Docker Engine + Compose depuis le [dépôt officiel](https://docs.docker.com/engine/install/ubuntu/), logs Docker en rotation (`/etc/docker/daemon.json`).
 3. Copier `deploy/vps/proxy` → `/srv/proxy` et `deploy/vps/sopiker` → `/srv/sopiker`, plus `deploy.sh` → `/srv/sopiker/deploy.sh` (`chmod 750`).
-4. Créer chaque `.env` depuis son `.env.example` (`chmod 600`).
+4. Créer chaque `.env` et `app.env` depuis leurs `.example` (`chmod 600`).
 5. `sudo docker login ghcr.io -u gust2301` avec un PAT GitHub limité à `read:packages`.
 6. Démarrer les projets **avant** le proxy (le proxy rejoint leurs réseaux `edge`) :
 
@@ -204,9 +219,24 @@ Installation : copier `backup.sh` en `/srv/sopiker/backup.sh` (`root`, `750`) et
 
 - ✅ `.env` en `600`, jamais commités (voir `.gitignore`)
 - ✅ MySQL sur réseau interne uniquement, aucun port publié
+- ✅ Le backend ne reçoit pas le mot de passe root MySQL (`app.env` séparé de `.env`)
 - ✅ Backends sans port publié, joignables seulement par Caddy
 - ✅ Production et staging sur des réseaux séparés
 - ✅ SSH par clé uniquement, UFW actif
 - ✅ Sauvegarde SQL quotidienne sur le VPS, restauration testée
 - ✅ Copie chiffrée des sauvegardes hors du VPS (Cloudflare R2)
-- ⬜ Restreindre 80/443 aux IP Cloudflare (à évaluer)
+- ✅ 80/443 acceptés uniquement depuis les IP Cloudflare (`sopiker-cf-firewall`, voir ci-dessous)
+
+### Filtrage Cloudflare
+
+Docker contourne UFW : `/usr/local/sbin/sopiker-cf-firewall` ([`deploy/vps/firewall/`](deploy/vps/firewall/)) n'accepte 80/443 que depuis les [plages Cloudflare](https://www.cloudflare.com/ips/), en IPv4 (chaîne `DOCKER-USER`) et en IPv6 (`INPUT`, où passe `docker-proxy`). Appliqué au démarrage et à chaque redémarrage de Docker (`sopiker-cf-firewall.service`), liste rafraîchie chaque lundi (`sopiker-cf-firewall-refresh.timer`). SSH n'est pas concerné.
+
+Conséquence : une requête directe vers l'IP du VPS (par exemple `curl --resolve api.sopikeur.sn:443:57.131.201.16`) est bloquée. Pour tester sans Cloudflare, le faire **depuis le VPS** avec `127.0.0.1`.
+
+```bash
+sudo journalctl -u sopiker-cf-firewall.service -n 5   # état
+sudo /usr/local/sbin/sopiker-cf-firewall --off        # urgence : tout rouvrir
+sudo systemctl restart sopiker-cf-firewall.service    # réactiver
+```
+
+Installation : script en `/usr/local/sbin/sopiker-cf-firewall` (`root`, `750`), les trois fichiers `systemd/sopiker-cf-firewall*` dans `/etc/systemd/system/`, puis `sudo systemctl enable --now sopiker-cf-firewall.service sopiker-cf-firewall-refresh.timer`.
