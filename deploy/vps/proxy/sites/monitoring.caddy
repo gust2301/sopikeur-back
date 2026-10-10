@@ -12,5 +12,16 @@ monitor.sopikeur.sn {
         X-Robots-Tag "noindex, nofollow"
         -Server
     }
-    reverse_proxy beszel-hub:8090
+    # Nom et icône Sopiker pour l'app iPhone (remplacent ceux de Beszel)
+    @branding path /static/manifest.json /static/icon.png /static/icon.svg
+    handle @branding {
+        root * /srv/branding/monitoring
+        uri strip_prefix /static
+        header Cache-Control "no-cache"
+        file_server
+    }
+
+    handle {
+        reverse_proxy beszel-hub:8090
+    }
 }
