@@ -2,7 +2,8 @@
 # ==============================================================================
 # /srv/sopiker/backup.sh — sauvegarde quotidienne Sopiker (lancée par systemd)
 # ==============================================================================
-# - Export SQL cohérent (--single-transaction) de production, staging et ERFI (si /srv/erfi)
+# - Export SQL cohérent (--single-transaction) de production, staging, ERFI et Gust Invest (si présents)
+# - Copie cohérente des bases SQLite d'AI Agents (passerelle, agents) si /srv/ai-agents
 # - Archive des configurations (/srv/sopiker, /srv/proxy, .env compris)
 # - Fichiers en 600 dans /var/backups/sopiker, rétention KEEP_DAYS jours
 # - Copie hors VPS : chiffrée avec age (clé publique seule sur le VPS) puis
@@ -64,6 +65,7 @@ fi
 
 DATABASES="production:sopiker-mysql staging:sopiker-mysql-staging"
 [ -d /srv/erfi ] && DATABASES="$DATABASES erfi:erfi-mysql"
+[ -d /srv/gust-invest ] && DATABASES="$DATABASES gust-invest:gust-invest-mysql"
 for spec in $DATABASES; do
     env_name="${spec%%:*}"
     container="${spec#*:}"
@@ -82,14 +84,35 @@ for spec in $DATABASES; do
     fi
 done
 
+# Bases SQLite d'AI Agents : API de sauvegarde SQLite (copie cohérente même en écriture)
+if [ -d /srv/ai-agents ]; then
+    mkdir -p "$DEST/ai-agents"
+    for spec in gateway:ai-agents-gateway:/data/gateway.db gust-invest-research:gust-invest-research:/data/gust-invest-research.db; do
+        name="${spec%%:*}"; rest="${spec#*:}"; container="${rest%%:*}"; db="${rest#*:}"
+        out="$DEST/ai-agents/$name-$STAMP.db.gz"
+        if docker exec "$container" python -c "import sqlite3,sys;s=sqlite3.connect(sys.argv[1]);d=sqlite3.connect('/tmp/backup.db');s.backup(d);d.close()" "$db" \
+            && docker exec "$container" sh -c 'cat /tmp/backup.db && rm -f /tmp/backup.db' | gzip -9 > "$out.tmp" \
+            && [ -s "$out.tmp" ]; then
+            mv "$out.tmp" "$out"
+            echo "OK ai-agents/$name $(stat -c %s "$out") octets -> $out"
+        else
+            rm -f "$out.tmp"
+            echo "ERREUR: sauvegarde SQLite $name" >&2
+            FAILED=1
+        fi
+    done
+fi
+
 mkdir -p "$DEST/config"
 CONFIG_DIRS="srv/sopiker srv/proxy"
 [ -d /srv/erfi ] && CONFIG_DIRS="$CONFIG_DIRS srv/erfi"
+[ -d /srv/gust-invest ] && CONFIG_DIRS="$CONFIG_DIRS srv/gust-invest"
+[ -d /srv/ai-agents ] && CONFIG_DIRS="$CONFIG_DIRS srv/ai-agents"
 # shellcheck disable=SC2086
 tar -C / -czf "$DEST/config/config-$STAMP.tar.gz" $CONFIG_DIRS
 echo "OK config $(stat -c %s "$DEST/config/config-$STAMP.tar.gz") octets"
 
-find "$DEST" -type f \( -name '*.sql.gz' -o -name '*.tar.gz' \) -mtime +"$KEEP_DAYS" -delete
+find "$DEST" -type f \( -name '*.sql.gz' -o -name '*.tar.gz' -o -name '*.db.gz' \) -mtime +"$KEEP_DAYS" -delete
 
 # ------------------------------------------------------------------------------
 # Copie chiffrée hors VPS (Cloudflare R2)

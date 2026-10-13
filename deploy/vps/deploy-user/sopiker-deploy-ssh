@@ -6,6 +6,7 @@
 # soit la commande demandée par GitHub Actions, seul « <staging|production> <sha> »
 # est accepté, puis transmis à /srv/sopiker/deploy.sh via sudo.
 # « erfi <sha> » lance /srv/erfi/deploy.sh (site ERFI).
+# « gust-invest <sha> » et « ai-agents <sha> » lancent /srv/<projet>/deploy.sh.
 # « status » lance /usr/local/sbin/sopiker-status (surveillance, lecture seule).
 # ==============================================================================
 
@@ -22,8 +23,15 @@ if [ "${target:-}" = erfi ] && [[ "${tag:-}" =~ ^[0-9a-f]{7,40}$ ]] && [ -z "${e
     exec sudo -n /srv/erfi/deploy.sh "$tag"
 fi
 
+for project in gust-invest ai-agents; do
+    if [ "${target:-}" = "$project" ] && [[ "${tag:-}" =~ ^[0-9a-f]{7,40}$ ]] && [ -z "${extra:-}" ]; then
+        logger -t sopiker-deploy "déploiement $project $tag depuis ${SSH_CLIENT%% *}"
+        exec sudo -n "/srv/$project/deploy.sh" "$tag"
+    fi
+done
+
 if [[ ! "${target:-}" =~ ^(staging|production)$ ]] || [[ ! "${tag:-}" =~ ^[0-9a-f]{7,40}$ ]] || [ -n "${extra:-}" ]; then
-    echo "Commande refusée. Attendu : <staging|production|erfi> <sha> ou status" >&2
+    echo "Commande refusée. Attendu : <staging|production|erfi|gust-invest|ai-agents> <sha> ou status" >&2
     logger -t sopiker-deploy "refusé: ${SSH_ORIGINAL_COMMAND:-<vide>}"
     exit 2
 fi
