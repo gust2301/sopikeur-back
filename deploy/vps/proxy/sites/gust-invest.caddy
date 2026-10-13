@@ -1,0 +1,38 @@
+# ==============================================================================
+# Gust Invest — invest.augustinvarore.com (/srv/gust-invest, dépôt gust2301/gust-invest)
+# ==============================================================================
+# Accès protégé par Cloudflare Access (code e-mail ; jeton de service pour le Mac).
+# Certificat interne comme monitor.sopikeur.sn : Access intercepte la validation
+# Let's Encrypt, et seul Cloudflare (SSL Full) joint cette origine.
+invest.augustinvarore.com {
+    tls internal
+    encode gzip
+    log {
+        output stdout
+        format console
+    }
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Robots-Tag "noindex, nofollow"
+        Referrer-Policy "same-origin"
+        X-Frame-Options "DENY"
+        -Server
+    }
+
+    handle /api/* {
+        reverse_proxy gust-invest-backend:8087 {
+            transport http {
+                read_timeout 60s
+            }
+        }
+    }
+
+    # Agent IA : import des analyses faites sur le Mac (jeton de l'agent requis en plus d'Access)
+    handle_path /agents/gust-invest-research/* {
+        reverse_proxy gust-invest-research:8080
+    }
+
+    handle {
+        reverse_proxy gust-invest-frontend:80
+    }
+}

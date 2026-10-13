@@ -15,6 +15,8 @@ bad() { echo "PROBLÈME $*"; FAIL=1; }
 
 CONTAINERS="proxy-caddy sopiker-backend sopiker-mysql sopiker-backend-staging sopiker-mysql-staging"
 [ -d /srv/erfi ] && CONTAINERS="$CONTAINERS erfi-web erfi-mysql"
+[ -d /srv/gust-invest ] && CONTAINERS="$CONTAINERS gust-invest-frontend gust-invest-backend gust-invest-mysql gust-invest-ib-gateway"
+[ -d /srv/ai-agents ] && CONTAINERS="$CONTAINERS ai-agents-gateway ai-agents-searxng gust-invest-research"
 for c in $CONTAINERS; do
     state=$(docker inspect -f '{{.State.Status}}{{if .State.Health}}/{{.State.Health.Status}}{{end}}' "$c" 2>/dev/null || echo absent)
     case "$state" in
@@ -25,6 +27,7 @@ done
 
 HOSTS="api.sopikeur.sn/actuator/health api-staging.sopikeur.sn/actuator/health"
 [ -d /srv/erfi ] && HOSTS="$HOSTS ongerfi.org/"
+[ -d /srv/gust-invest ] && HOSTS="$HOSTS invest.augustinvarore.com/api/health"
 for target in $HOSTS; do
     host=${target%%/*}
     code=$(curl -sk -o /dev/null -w '%{http_code}' -m 10 --resolve "$host:443:127.0.0.1" "https://$target" || true)

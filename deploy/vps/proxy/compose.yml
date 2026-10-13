@@ -32,6 +32,8 @@ services:
       - sopiker-staging-edge
       - erfi-edge
       - monitoring-edge
+      - gust-invest-edge
+      - ai-agents-edge
     mem_limit: 256m
 
 volumes:
@@ -55,3 +57,9 @@ networks:
   monitoring-edge:
     external: true
     name: monitoring_edge
+  gust-invest-edge:
+    external: true
+    name: gust_invest_edge
+  ai-agents-edge:
+    external: true
+    name: ai_agents_edge
